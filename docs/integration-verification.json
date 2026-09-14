@@ -1,0 +1,21 @@
+{
+  "status": "OK",
+  "gateway": "http://127.0.0.1:8000",
+  "database": "sportmach_users",
+  "checks": [
+    "Gateway, Ms_Users y PostgreSQL disponibles",
+    "Registro persistente con rol player y RUT opcional",
+    "Login, email normalizado y JWT aceptado por ambos servicios",
+    "Sin token: 401; perfil de otro usuario: 403",
+    "Perfil y preferencias persistidos en sportmach_users",
+    "Consentimientos, roles y exportacion a traves del gateway",
+    "Desactivacion compatible con referencias e invalidacion de acceso",
+    "Usuarios y contraseñas del seed original compatibles"
+  ],
+  "temporary_users_removed": true,
+  "original_user_count": 12,
+  "unit_tests": {
+    "gateway": 37,
+    "ms_users": 46
+  }
+}

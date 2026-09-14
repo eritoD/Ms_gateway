@@ -1,0 +1,70 @@
+name: sportmatch-backend
+
+services:
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    environment:
+      APP_NAME: "${APP_NAME:-SportMatch Gateway}"
+      APP_VERSION: "${APP_VERSION:-0.1.0}"
+      APP_ENV: "${APP_ENV:-development}"
+      SERVICE_NAME: "${SERVICE_NAME:-sportmatch-gateway}"
+      GATEWAY_HOST: "0.0.0.0"
+      GATEWAY_PORT: "8000"
+      AUTH_REQUIRED: "true"
+      JWT_ALGORITHM: "${JWT_ALGORITHM:-HS256}"
+      JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
+      JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
+      JWT_SECRET: "${JWT_SECRET:?Configure JWT_SECRET en .env}"
+      JWT_PUBLIC_KEY: "${JWT_PUBLIC_KEY:-}"
+      JWT_LEEWAY_SECONDS: "${JWT_LEEWAY_SECONDS:-5}"
+      ALLOWED_HOSTS: "${ALLOWED_HOSTS:-localhost,127.0.0.1,gateway,testserver}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-}"
+      ENABLE_HSTS: "${ENABLE_HSTS:-false}"
+      USERS_SERVICE_URL: "http://ms_users:8001"
+      USERS_TIMEOUT_SECONDS: "${USERS_TIMEOUT_SECONDS:-10}"
+    depends_on:
+      ms_users:
+        condition: service_healthy
+    ports:
+      # 127.0.0.1 por defecto. scripts/dev-lan.sh usa 0.0.0.0 para que un
+      # teléfono con Expo Go en la misma red Wi-Fi pueda llegar al gateway.
+      - "${GATEWAY_BIND:-127.0.0.1}:${GATEWAY_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=12)
+      interval: 30s
+      timeout: 15s
+      start_period: 5s
+      retries: 3
+    restart: unless-stopped
+
+  users_migrate:
+    build:
+      context: ../Ms_Users
+    image: sportmatch-ms-users:local
+    environment:
+      USERS_DATABASE_URL: "${USERS_DATABASE_URL:?Configure USERS_DATABASE_URL en .env}"
+    command: ["python", "-m", "app.database.migrate"]
+    restart: "no"
+
+  ms_users:
+    build:
+      context: ../Ms_Users
+    image: sportmatch-ms-users:local
+    environment:
+      USERS_DATABASE_URL: "${USERS_DATABASE_URL:?Configure USERS_DATABASE_URL en .env}"
+      JWT_SECRET: "${JWT_SECRET:?Configure JWT_SECRET en .env}"
+      JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
+      JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
+      JWT_ACCESS_TOKEN_MINUTES: "${JWT_ACCESS_TOKEN_MINUTES:-30}"
+    depends_on:
+      users_migrate:
+        condition: service_completed_successfully
+    expose:
+      - "8001"
+    restart: unless-stopped

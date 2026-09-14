@@ -1,0 +1,25 @@
+# Configuración local
+.env
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Cobertura
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Editores y sistemas operativos
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
