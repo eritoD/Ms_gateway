@@ -121,3 +121,41 @@ def test_openapi_exposes_path_parameters_and_public_login(monkeypatch):
     login = paths["/api/v1/users/auth/login"]["post"]
     assert not login.get("security")
     assert "email" in login["requestBody"]["content"]["application/json"]["example"]
+
+
+@pytest.mark.parametrize("path,status", [
+    ("/api/v1/users/auth/password-reset/request", 202),
+    ("/api/v1/users/auth/password-reset/confirm", 200),
+    ("/api/v1/users/auth/email-verification/request", 202),
+    ("/api/v1/users/auth/email-verification/confirm", 200),
+])
+def test_email_code_routes_are_public_and_forwarded(monkeypatch, path, status):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(status, json={"detail": "ok"})
+    with proxy_client(monkeypatch, upstream) as client:
+        response = client.post(path, json={"email": "ana@example.com"})
+        docs = client.get("/openapi.json").json()["paths"][path]["post"]
+    assert response.status_code == status
+    assert calls[0].url.path == path
+    assert "authorization" not in calls[0].headers
+    assert not docs.get("security")
+
+
+def test_suggestions_require_a_token_and_forward_the_query(monkeypatch):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(200, json=[])
+    with proxy_client(monkeypatch, upstream) as client:
+        anonymous = client.get("/api/v1/users/suggestions")
+        assert calls == []
+        response = client.get("/api/v1/users/suggestions?limit=5", headers=token_headers())
+        docs = client.get("/openapi.json").json()["paths"]["/api/v1/users/suggestions"]["get"]
+    assert anonymous.status_code == 401
+    assert response.status_code == 200
+    assert calls[0].url.path == "/api/v1/users/suggestions"
+    assert calls[0].url.query == b"limit=5"
+    assert calls[0].headers["authorization"].startswith("Bearer ")
+    assert docs["security"] == [{"JWTBearer": []}]

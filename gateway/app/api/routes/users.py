@@ -13,6 +13,10 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 BODY_EXAMPLES = {
     "/auth/register": {"email": "nuevo@example.com", "password": "UnaClaveDePrueba2026!", "nombre": "Ana", "apellido_paterno": "Prueba"},
     "/auth/login": {"email": "usuario02@sportmach.example.com", "password": "SportmachDemo2026!"},
+    "/auth/email-verification/request": {"email": "nuevo@example.com"},
+    "/auth/email-verification/confirm": {"email": "nuevo@example.com", "code": "123456"},
+    "/auth/password-reset/request": {"email": "usuario02@sportmach.example.com"},
+    "/auth/password-reset/confirm": {"email": "usuario02@sportmach.example.com", "code": "123456", "new_password": "UnaClaveNueva2026!"},
     "/{user_id}/profile": {"nombre": "Ana", "apellido_paterno": "Prueba", "biografia": "Me gusta el tenis"},
     "/{user_id}/preferences": {"deportes": [{"deporte_codigo": "tenis", "nivel": 3}], "disponibilidad": [{"dia_semana": "lunes", "hora_inicio": "18:00", "hora_fin": "20:00"}]},
     "/{user_id}/consents": {"type": "privacy", "purpose": "Uso de preferencias", "document_version": "v1", "method": "app"},
@@ -43,6 +47,11 @@ async def proxy_users(request: Request, service: Annotated[UsersService, Depends
 for path, methods, public in [
     ("/auth/register", ["POST"], True),
     ("/auth/login", ["POST"], True),
+    ("/auth/email-verification/request", ["POST"], True),
+    ("/auth/email-verification/confirm", ["POST"], True),
+    ("/auth/password-reset/request", ["POST"], True),
+    ("/auth/password-reset/confirm", ["POST"], True),
+    ("/suggestions", ["GET"], False),
     ("/{user_id}/profile", ["GET", "PUT"], False),
     ("/{user_id}/roles", ["GET"], False),
     ("/{user_id}/preferences", ["GET", "PUT"], False),
