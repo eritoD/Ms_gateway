@@ -159,3 +159,18 @@ def test_suggestions_require_a_token_and_forward_the_query(monkeypatch):
     assert calls[0].url.query == b"limit=5"
     assert calls[0].headers["authorization"].startswith("Bearer ")
     assert docs["security"] == [{"JWTBearer": []}]
+
+
+def test_suggestion_filters_preserve_query_and_require_auth(monkeypatch):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(200, json=[{'distancia_km': 2.4, 'nivel_coincidente': True}])
+    with proxy_client(monkeypatch, upstream) as client:
+        path = '/api/v1/users/suggestions?radius_km=5&sport=running&min_level=2&max_level=4&shared_sports=true&level_tolerance=1&limit=50'
+        assert client.get(path).status_code == 401
+        assert calls == []
+        response = client.get(path, headers=token_headers())
+        assert response.status_code == 200
+        assert response.json()[0]['distancia_km'] == 2.4
+        assert calls[0].url.query.decode() == path.split('?')[1]

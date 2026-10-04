@@ -85,6 +85,16 @@ for path, methods, public in [
                 "name": "limit", "in": "query", "required": False,
                 "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20},
             })
+            for name, schema, description in [
+                ("radius_km", {"type": "number", "minimum": 1, "maximum": 100}, "Radio en km desde la ubicación guardada; requiere coordenadas propias."),
+                ("sport", {"type": "string", "maxLength": 50}, "Código del deporte."),
+                ("min_level", {"type": "integer", "minimum": 1, "maximum": 5, "default": 1}, "Nivel mínimo del deportista."),
+                ("max_level", {"type": "integer", "minimum": 1, "maximum": 5, "default": 5}, "Nivel máximo del deportista."),
+                ("shared_sports", {"type": "boolean", "default": False}, "Solo deportes en común."),
+                ("level_tolerance", {"type": "integer", "minimum": 0, "maximum": 4}, "Diferencia máxima de nivel en el mismo deporte compartido."),
+            ]:
+                documentation["parameters"].append({"name": name, "in": "query", "required": False,
+                                                     "schema": schema, "description": description})
         if method in ("POST", "PUT"):
             documentation["requestBody"] = {
                 "required": True, "content": {"application/json": {
