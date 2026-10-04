@@ -1,5 +1,13 @@
 # SportMatch Backend
 
+El gateway también integra [`../Ms_Matching`](../Ms_Matching/README.md), servicio
+independiente para solicitudes, matches y mensajes. Las rutas `/api/v1/matching`
+requieren JWT y se reenvían a `ms_matching:8002`. Configura `MATCHING_DATABASE_URL`
+en `.env`; Matching usa su propia base y obtiene perfiles públicos por API de Users.
+
+Desde esta carpeta, `sh scripts/dev-lan.sh` levanta Users, Matching y el gateway
+para Expo en la misma red local. Swagger incluye las operaciones de Matching.
+
 Gateway FastAPI integrado con el microservicio hermano `../Ms_Users`. El cliente usa una sola entrada, `http://localhost:8000`, y el gateway reenvía las rutas `/api/v1/users/...`. `Ms_Users` persiste en **sportmach_users**, dentro del servidor PostgreSQL local registrado como `sportmach` en pgAdmin.
 
 ## Ejecutar la integración
@@ -86,6 +94,7 @@ El registro y el login son públicos. Las demás rutas exigen un token válido; 
 | `GET /health/ready` | Verifica gateway → Ms_Users → base USERS. |
 | `POST /api/v1/users/auth/register` | Registro. |
 | `POST /api/v1/users/auth/login` | Login y token. |
+| `GET /api/v1/users/suggestions?limit=50` | Cards de otros deportistas activos y verificados (`player` o `usuario`); excluye la propia cuenta. |
 | `GET/PUT /api/v1/users/{user_id}/profile` | Perfil. |
 | `GET /api/v1/users/{user_id}/roles` | Rol actual. |
 | `GET/PUT /api/v1/users/{user_id}/preferences` | Preferencias y deportes declarados. |

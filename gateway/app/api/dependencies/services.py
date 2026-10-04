@@ -9,6 +9,14 @@ from app.services.gateway_service import GatewayService
 from app.services.health_service import HealthService
 from app.services.token_service import TokenService
 from app.services.users_service import UsersService
+from app.services.matching_service import MatchingService
+
+
+def get_matching_service(request: Request) -> MatchingService:
+    client = getattr(request.app.state, "matching_client", None)
+    if client is None:
+        raise HTTPException(status_code=503, detail="Ms_Matching no está configurado")
+    return MatchingService(client)
 
 
 def get_users_service(request: Request) -> UsersService:

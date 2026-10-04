@@ -2,12 +2,15 @@
 
 Responsabilidad general: encontrar y gestionar conexiones deportivas compatibles entre usuarios.
 
-Funciones futuras:
+Funciones:
 
-- Búsqueda de personas y oportunidades deportivas.
-- Cálculo de compatibilidad.
-- Solicitudes de match y sus estados.
+- Solicitudes de match y sus estados: implementado.
+- Mensajería entre matches aceptados: implementado.
+- Búsqueda geográfica y cálculo avanzado de compatibilidad: pendientes.
 
-**Estado actual:** Pendiente de implementación.
+**Estado actual:** Implementado como microservicio independiente en
+[`../../../Ms_Matching`](../../../Ms_Matching/README.md), con carpetas de API,
+servicios, repositorios, esquemas, configuración y base de datos.
 
-Todavía no existe una API ejecutable para este servicio.
+La API `/api/v1/matching` gestiona solicitudes, aceptación/rechazo, matches y chat.
+Compose lo ejecuta como `ms_matching:8002`; el gateway es la entrada pública.

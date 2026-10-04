@@ -20,10 +20,15 @@ BODY_EXAMPLES = {
     "/{user_id}/profile": {"nombre": "Ana", "apellido_paterno": "Prueba", "biografia": "Me gusta el tenis"},
     "/{user_id}/preferences": {"deportes": [{"deporte_codigo": "tenis", "nivel": 3}], "disponibilidad": [{"dia_semana": "lunes", "hora_inicio": "18:00", "hora_fin": "20:00"}]},
     "/{user_id}/consents": {"type": "privacy", "purpose": "Uso de preferencias", "document_version": "v1", "method": "app"},
+    "/athletes/cards": ["10000000-0000-4000-8000-000000000002"],
 }
 
 
 async def proxy_users(request: Request, service: Annotated[UsersService, Depends(get_users_service)]) -> Response:
+    return await forward_request(request, service)
+
+
+async def forward_request(request: Request, service: UsersService) -> Response:
     body = bytearray()
     async for chunk in request.stream():
         body.extend(chunk)
@@ -52,6 +57,8 @@ for path, methods, public in [
     ("/auth/password-reset/request", ["POST"], True),
     ("/auth/password-reset/confirm", ["POST"], True),
     ("/suggestions", ["GET"], False),
+    ("/athletes/cards", ["POST"], False),
+    ("/athletes/{user_id}", ["GET"], False),
     ("/{user_id}/profile", ["GET", "PUT"], False),
     ("/{user_id}/roles", ["GET"], False),
     ("/{user_id}/preferences", ["GET", "PUT"], False),
@@ -68,10 +75,21 @@ for path, methods, public in [
                 for name in ("user_id", "consent_id") if "{" + name + "}" in path
             ],
         }
+        if path == "/suggestions":
+            documentation.update({
+                "summary": "Listar otros deportistas registrados",
+                "description": "Cards públicas para Inicio y Descubrir. Solo deportistas "
+                "activos y verificados (player o usuario), excluyendo la cuenta que consulta.",
+            })
+            documentation["parameters"].append({
+                "name": "limit", "in": "query", "required": False,
+                "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20},
+            })
         if method in ("POST", "PUT"):
             documentation["requestBody"] = {
                 "required": True, "content": {"application/json": {
-                    "schema": {"type": "object"}, "example": BODY_EXAMPLES[path],
+                    "schema": {"type": "array", "items": {"type": "string", "format": "uuid"}, "maxItems": 100}
+                    if path == "/athletes/cards" else {"type": "object"}, "example": BODY_EXAMPLES[path],
                 }},
             }
         router.add_api_route(

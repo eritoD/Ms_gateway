@@ -5,6 +5,8 @@ from fastapi import HTTPException
 
 
 class UsersService:
+    name = "Ms_Users"
+    ready_path = "/api/v1/users/health/ready"
     def __init__(self, client: httpx.AsyncClient) -> None:
         self.client = client
 
@@ -15,15 +17,15 @@ class UsersService:
         try:
             return await self.client.request(method, url, content=content, headers=headers)
         except httpx.TimeoutException as error:
-            raise HTTPException(status_code=504, detail="Ms_Users no respondió a tiempo") from error
+            raise HTTPException(status_code=504, detail=f"{self.name} no respondió a tiempo") from error
         except httpx.RequestError as error:
-            raise HTTPException(status_code=503, detail="Ms_Users no está disponible") from error
+            raise HTTPException(status_code=503, detail=f"{self.name} no está disponible") from error
 
     async def check_ready(self) -> None:
         try:
-            response = await self.forward("GET", "/api/v1/users/health/ready")
+            response = await self.forward("GET", self.ready_path)
             if response.status_code == 200 and response.json().get("status") == "ready":
                 return
         except (HTTPException, ValueError, AttributeError):
             pass
-        raise HTTPException(status_code=503, detail="Ms_Users o su base de datos no están disponibles")
+        raise HTTPException(status_code=503, detail=f"{self.name} o su base de datos no están disponibles")

@@ -23,9 +23,10 @@ class Settings(BaseSettings):
     gateway_host: str = "0.0.0.0"
     gateway_port: int = Field(default=8000, ge=1, le=65535)
     users_service_url: HttpUrl | None = None
+    matching_service_url: HttpUrl | None = None
     users_timeout_seconds: float = Field(default=10, gt=0, le=120)
 
-    @field_validator("users_service_url")
+    @field_validator("users_service_url", "matching_service_url")
     @classmethod
     def validate_users_origin(cls, value: HttpUrl | None) -> HttpUrl | None:
         if value and (value.username or value.password or value.query or value.fragment or value.path not in (None, "/")):

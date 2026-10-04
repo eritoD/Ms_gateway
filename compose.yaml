@@ -23,8 +23,11 @@ services:
       CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-}"
       ENABLE_HSTS: "${ENABLE_HSTS:-false}"
       USERS_SERVICE_URL: "http://ms_users:8001"
+      MATCHING_SERVICE_URL: "http://ms_matching:8002"
       USERS_TIMEOUT_SECONDS: "${USERS_TIMEOUT_SECONDS:-10}"
     depends_on:
+      ms_matching:
+        condition: service_healthy
       ms_users:
         condition: service_healthy
     ports:
@@ -41,6 +44,22 @@ services:
       timeout: 15s
       start_period: 5s
       retries: 3
+    restart: unless-stopped
+
+  ms_matching:
+    build:
+      context: ../Ms_Matching
+    environment:
+      MATCHING_DATABASE_URL: "${MATCHING_DATABASE_URL:?Configure MATCHING_DATABASE_URL en .env}"
+      JWT_SECRET: "${JWT_SECRET:?Configure JWT_SECRET en .env}"
+      JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
+      JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
+      USERS_SERVICE_URL: "http://ms_users:8001"
+    depends_on:
+      ms_users:
+        condition: service_healthy
+    expose:
+      - "8002"
     restart: unless-stopped
 
   users_migrate:
@@ -74,6 +93,8 @@ services:
       PASSWORD_RESET_CODE_MINUTES: "${PASSWORD_RESET_CODE_MINUTES:-15}"
       PASSWORD_RESET_MAX_ATTEMPTS: "${PASSWORD_RESET_MAX_ATTEMPTS:-5}"
       PASSWORD_RESET_RESEND_SECONDS: "${PASSWORD_RESET_RESEND_SECONDS:-60}"
+      # Solo desarrollo y solo con EMAIL_BACKEND=console: cualquier código de 6 dígitos verifica el correo.
+      EMAIL_VERIFICATION_ACCEPT_ANY_CODE: "${EMAIL_VERIFICATION_ACCEPT_ANY_CODE:-false}"
     depends_on:
       users_migrate:
         condition: service_completed_successfully
