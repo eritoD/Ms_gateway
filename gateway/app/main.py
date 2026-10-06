@@ -18,7 +18,7 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         async with AsyncExitStack() as stack:
-            for name, url in (("users", settings.users_service_url), ("matching", settings.matching_service_url)):
+            for name, url in (("users", settings.users_service_url), ("matching", settings.matching_service_url), ("activities", settings.activities_service_url)):
                 if url is not None:
                     client = await stack.enter_async_context(httpx.AsyncClient(
                         base_url=str(url), timeout=settings.users_timeout_seconds,
@@ -30,6 +30,7 @@ def create_app() -> FastAPI:
             finally:
                 application.state.users_client = None
                 application.state.matching_client = None
+                application.state.activities_client = None
 
     application = FastAPI(
         title=settings.app_name,

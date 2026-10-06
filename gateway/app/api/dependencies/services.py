@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request
 
 from app.core.config import Settings, get_settings
+from app.services.activities_service import ActivitiesService
 from app.services.gateway_service import GatewayService
 from app.services.health_service import HealthService
 from app.services.token_service import TokenService
@@ -42,3 +43,10 @@ def get_token_service(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> TokenService:
     return TokenService(settings)
+
+
+def get_activities_service(request: Request) -> ActivitiesService:
+    client = getattr(request.app.state, "activities_client", None)
+    if client is None:
+        raise HTTPException(status_code=503, detail="Ms_Activities no está configurado")
+    return ActivitiesService(client)

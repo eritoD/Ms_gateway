@@ -24,8 +24,11 @@ services:
       ENABLE_HSTS: "${ENABLE_HSTS:-false}"
       USERS_SERVICE_URL: "http://ms_users:8001"
       MATCHING_SERVICE_URL: "http://ms_matching:8002"
+      ACTIVITIES_SERVICE_URL: "http://ms_activities:8003"
       USERS_TIMEOUT_SECONDS: "${USERS_TIMEOUT_SECONDS:-10}"
     depends_on:
+      ms_activities:
+        condition: service_healthy
       ms_matching:
         condition: service_healthy
       ms_users:
@@ -44,6 +47,22 @@ services:
       timeout: 15s
       start_period: 5s
       retries: 3
+    restart: unless-stopped
+
+  ms_activities:
+    build:
+      context: ../Ms_Activities
+    environment:
+      ACTIVITIES_DATABASE_URL: "${ACTIVITIES_DATABASE_URL:?Configure ACTIVITIES_DATABASE_URL en .env}"
+      JWT_SECRET: "${JWT_SECRET:?Configure JWT_SECRET en .env}"
+      JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
+      JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
+      USERS_SERVICE_URL: "http://ms_users:8001"
+    depends_on:
+      ms_users:
+        condition: service_healthy
+    expose:
+      - "8003"
     restart: unless-stopped
 
   ms_matching:

@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
-from app.api.dependencies.services import get_health_service, get_users_service, get_matching_service
+from app.api.dependencies.services import get_health_service, get_users_service, get_matching_service, get_activities_service
 from app.core.config import Settings, get_settings
 from app.schemas.health import LiveHealthResponse, ReadyHealthResponse
 from app.services.health_service import HealthService
@@ -38,5 +38,7 @@ async def ready(
         await get_users_service(request).check_ready()
     if settings.matching_service_url is not None:
         await get_matching_service(request).check_ready()
+    if settings.activities_service_url is not None:
+        await get_activities_service(request).check_ready()
     status = service.get_readiness()
     return ReadyHealthResponse(status=status.status, service=status.service)
