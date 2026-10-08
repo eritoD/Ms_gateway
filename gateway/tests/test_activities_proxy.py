@@ -59,3 +59,40 @@ def test_offline_activities_return_503_and_readiness_fails(monkeypatch):
     with activities_client(monkeypatch, offline) as client:
         assert client.get('/api/v1/activities', headers=token_headers()).status_code == 503
         assert client.get('/health/ready').status_code == 503
+
+
+def test_applications_require_token_and_forward_path(monkeypatch):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(201 if request.method == 'POST' else 200, json={'status': 'pending'})
+    with activities_client(monkeypatch, upstream) as client:
+        base = '/api/v1/activities/abc/applications'
+        assert client.post(base).status_code == 401
+        assert client.get(base + '/me').status_code == 401
+        assert calls == []
+        response = client.post(base, headers={**token_headers(), 'X-User-ID': 'forged'})
+        assert response.status_code == 201 and response.json() == {'status': 'pending'}
+        assert client.get(base + '/me', headers=token_headers()).status_code == 200
+        assert client.get(base, headers=token_headers()).status_code == 200
+    assert [(c.method, c.url.path) for c in calls] == [
+        ('POST', base), ('GET', base + '/me'), ('GET', base)]
+    assert 'x-user-id' not in calls[0].headers
+    assert calls[0].headers['authorization'].startswith('Bearer ')
+
+
+@pytest.mark.parametrize('action', ['accept', 'reject'])
+def test_decisions_require_token_and_forward_path(monkeypatch, action):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(200, json={'status': action + 'ed'})
+    with activities_client(monkeypatch, upstream) as client:
+        path = f'/api/v1/activities/abc/applications/def/{action}'
+        assert client.post(path).status_code == 401
+        assert calls == []
+        response = client.post(path, headers={**token_headers(), 'X-User-ID': 'forged'})
+        assert response.status_code == 200 and response.json() == {'status': action + 'ed'}
+        assert client.get(path, headers=token_headers()).status_code == 405
+    assert len(calls) == 1 and calls[0].method == 'POST' and calls[0].url.path == path
+    assert 'x-user-id' not in calls[0].headers
