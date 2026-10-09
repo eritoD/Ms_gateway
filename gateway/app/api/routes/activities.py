@@ -29,6 +29,17 @@ router.add_api_route("/{activity_id}", proxy, methods=["GET"], response_class=Re
     summary="Ver detalle de una actividad", openapi_extra={"parameters": [
         {"name": "activity_id", "in": "path", "required": True, "schema": {"type": "string", "format": "uuid"}},
     ]})
+router.add_api_route("/{activity_id}", proxy, methods=["PATCH"], response_class=Response,
+    summary="Modificar una actividad (solo organizador)", openapi_extra={
+        "parameters": [{"name": "activity_id", "in": "path", "required": True,
+                        "schema": {"type": "string", "format": "uuid"}}],
+        "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"},
+            "example": {"title": "Running largo en el parque", "starts_at": "2027-01-10T20:00:00-03:00", "capacity": 12},
+        }}}})
+router.add_api_route("/{activity_id}", proxy, methods=["DELETE"], response_class=Response, status_code=204,
+    summary="Eliminar (cancelar) una actividad (solo organizador)", openapi_extra={"parameters": [
+        {"name": "activity_id", "in": "path", "required": True, "schema": {"type": "string", "format": "uuid"}},
+    ]})
 for path, method, status_code, summary in [
     ("/{activity_id}/applications", "POST", 201, "Postular a una actividad (queda pendiente)"),
     ("/{activity_id}/applications/me", "GET", 200, "Ver el estado de mi postulación"),

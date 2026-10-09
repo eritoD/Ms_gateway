@@ -96,3 +96,22 @@ def test_decisions_require_token_and_forward_path(monkeypatch, action):
         assert client.get(path, headers=token_headers()).status_code == 405
     assert len(calls) == 1 and calls[0].method == 'POST' and calls[0].url.path == path
     assert 'x-user-id' not in calls[0].headers
+
+
+def test_edit_and_cancel_require_token_and_forward_body(monkeypatch):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(204) if request.method == 'DELETE' else httpx.Response(200, json={'title': 'Nuevo'})
+    with activities_client(monkeypatch, upstream) as client:
+        path = '/api/v1/activities/abc'
+        assert client.patch(path, json={'title': 'Nuevo'}).status_code == 401
+        assert client.delete(path).status_code == 401
+        assert calls == []
+        response = client.patch(path, headers={**token_headers(), 'X-User-ID': 'forged'}, json={'title': 'Nuevo'})
+        assert response.status_code == 200 and response.json() == {'title': 'Nuevo'}
+        deleted = client.delete(path, headers=token_headers())
+        assert deleted.status_code == 204 and deleted.content == b''
+    assert [(c.method, c.url.path) for c in calls] == [('PATCH', path), ('DELETE', path)]
+    assert calls[0].content == b'{"title":"Nuevo"}'
+    assert 'x-user-id' not in calls[0].headers
