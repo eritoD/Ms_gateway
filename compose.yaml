@@ -58,8 +58,12 @@ services:
       JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
       JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
       USERS_SERVICE_URL: "http://ms_users:8001"
+      # Para validar matches al calificar, con el token del propio deportista.
+      MATCHING_SERVICE_URL: "http://ms_matching:8002"
     depends_on:
       ms_users:
+        condition: service_healthy
+      ms_matching:
         condition: service_healthy
     expose:
       - "8003"

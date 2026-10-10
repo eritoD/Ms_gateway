@@ -115,3 +115,24 @@ def test_edit_and_cancel_require_token_and_forward_body(monkeypatch):
     assert [(c.method, c.url.path) for c in calls] == [('PATCH', path), ('DELETE', path)]
     assert calls[0].content == b'{"title":"Nuevo"}'
     assert 'x-user-id' not in calls[0].headers
+
+
+
+def test_ratings_and_history_require_token_and_reach_activities(monkeypatch):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(200, json={'ok': True})
+    with activities_client(monkeypatch, upstream) as client:
+        routes = [('PUT', '/api/v1/ratings/abc'), ('GET', '/api/v1/ratings/me'), ('GET', '/api/v1/ratings/given'),
+                  ('GET', '/api/v1/activities/history'), ('GET', '/api/v1/activities/abc/participants')]
+        for method, path in routes:
+            assert client.request(method, path, json={'score': 5} if method == 'PUT' else None).status_code == 401
+        assert calls == []
+        for method, path in routes:
+            response = client.request(method, path, headers={**token_headers(), 'X-User-ID': 'forged'},
+                                      json={'score': 5} if method == 'PUT' else None)
+            assert response.status_code == 200
+    assert [(c.method, c.url.path) for c in calls] == routes
+    assert all(c.url.host == 'ms_activities' and 'x-user-id' not in c.headers for c in calls)
+    assert calls[0].content == b'{"score":5}'

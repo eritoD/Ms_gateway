@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.routes.activities import router as activities_router
+from app.api.routes.activities import ratings_router, router as activities_router
 from app.api.routes.gateway import router as gateway_router
 from app.api.routes.health import router as health_router
 from app.api.routes.security import router as security_router
@@ -17,3 +17,4 @@ api_router.include_router(users_router)
 api_router.include_router(matching_router)
 
 api_router.include_router(activities_router)
+api_router.include_router(ratings_router)

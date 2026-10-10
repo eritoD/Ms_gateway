@@ -25,6 +25,14 @@ router.add_api_route("", proxy, methods=["POST"], response_class=Response, statu
             "location": "Parque Bicentenario, entrada principal", "description": "Trote recreativo de 5 km.",
             "capacity": 10,
         }}}}})
+# Declared before "/{activity_id}" only for the documentation; every path is forwarded as is.
+router.add_api_route("/history", proxy, methods=["GET"], response_class=Response,
+    summary="Historial: actividades ya realizadas donde organizaste o participaste", openapi_extra={"parameters": [
+        {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100}},
+    ]})
+router.add_api_route("/{activity_id}/participants", proxy, methods=["GET"], response_class=Response,
+    summary="Participantes de una actividad (solo organizador y aceptados)",
+    openapi_extra={"parameters": [{"name": "activity_id", "in": "path", "required": True, "schema": {"type": "string", "format": "uuid"}}]})
 router.add_api_route("/{activity_id}", proxy, methods=["GET"], response_class=Response,
     summary="Ver detalle de una actividad", openapi_extra={"parameters": [
         {"name": "activity_id", "in": "path", "required": True, "schema": {"type": "string", "format": "uuid"}},
@@ -53,3 +61,16 @@ for path, method, status_code, summary in [
             {"name": name, "in": "path", "required": True, "schema": {"type": "string", "format": "uuid"}}
             for name in ("activity_id", "application_id") if "{" + name + "}" in path
         ]})
+
+
+ratings_router = APIRouter(prefix="/api/v1/ratings", tags=["Ratings"], dependencies=[Depends(get_current_principal)])
+ratings_router.add_api_route("/me", proxy, methods=["GET"], response_class=Response,
+    summary="Mi reputación: promedio y calificaciones recibidas")
+ratings_router.add_api_route("/given", proxy, methods=["GET"], response_class=Response,
+    summary="Calificaciones que di")
+ratings_router.add_api_route("/{user_id}", proxy, methods=["PUT"], response_class=Response,
+    summary="Calificar a un deportista (match o actividad realizada juntos)", openapi_extra={
+        "parameters": [{"name": "user_id", "in": "path", "required": True,
+                        "schema": {"type": "string", "format": "uuid"}}],
+        "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"},
+            "example": {"score": 5, "comment": "Muy puntual y buena onda."}}}}})
