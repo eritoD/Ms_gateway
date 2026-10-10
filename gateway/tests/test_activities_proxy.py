@@ -136,3 +136,19 @@ def test_ratings_and_history_require_token_and_reach_activities(monkeypatch):
     assert [(c.method, c.url.path) for c in calls] == routes
     assert all(c.url.host == 'ms_activities' and 'x-user-id' not in c.headers for c in calls)
     assert calls[0].content == b'{"score":5}'
+
+
+
+def test_cancel_my_application_requires_token_and_reaches_activities(monkeypatch):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(204)
+    with activities_client(monkeypatch, upstream) as client:
+        path = '/api/v1/activities/abc/applications/me'
+        assert client.delete(path).status_code == 401
+        assert calls == []
+        response = client.delete(path, headers={**token_headers(), 'X-User-ID': 'forged'})
+        assert response.status_code == 204 and response.content == b''
+    assert [(c.method, c.url.path) for c in calls] == [('DELETE', path)]
+    assert 'x-user-id' not in calls[0].headers

@@ -51,6 +51,7 @@ router.add_api_route("/{activity_id}", proxy, methods=["DELETE"], response_class
 for path, method, status_code, summary in [
     ("/{activity_id}/applications", "POST", 201, "Postular a una actividad (queda pendiente)"),
     ("/{activity_id}/applications/me", "GET", 200, "Ver el estado de mi postulación"),
+    ("/{activity_id}/applications/me", "DELETE", 204, "Cancelar mi postulación (libera el cupo si estaba aceptada)"),
     ("/{activity_id}/applications", "GET", 200, "Ver postulaciones recibidas (solo organizador)"),
     ("/{activity_id}/applications/{application_id}/accept", "POST", 200, "Aceptar una postulación y descontar un cupo"),
     ("/{activity_id}/applications/{application_id}/reject", "POST", 200, "Rechazar una postulación"),
