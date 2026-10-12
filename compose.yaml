@@ -26,6 +26,11 @@ services:
       MATCHING_SERVICE_URL: "http://ms_matching:8002"
       ACTIVITIES_SERVICE_URL: "http://ms_activities:8003"
       USERS_TIMEOUT_SECONDS: "${USERS_TIMEOUT_SECONDS:-10}"
+      NOTIFICATIONS_DATABASE_URL: "${USERS_DATABASE_URL:?Configure USERS_DATABASE_URL en .env}"
+      MATCHING_DATABASE_URL: "${MATCHING_DATABASE_URL:?Configure MATCHING_DATABASE_URL en .env}"
+      ACTIVITIES_DATABASE_URL: "${ACTIVITIES_DATABASE_URL:?Configure ACTIVITIES_DATABASE_URL en .env}"
+      PUSH_ENABLED: "${PUSH_ENABLED:-false}"
+      EXPO_ACCESS_TOKEN: "${EXPO_ACCESS_TOKEN:-}"
     depends_on:
       ms_activities:
         condition: service_healthy

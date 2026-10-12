@@ -174,3 +174,26 @@ def test_suggestion_filters_preserve_query_and_require_auth(monkeypatch):
         assert response.status_code == 200
         assert response.json()[0]['distancia_km'] == 2.4
         assert calls[0].url.query.decode() == path.split('?')[1]
+
+
+@pytest.mark.parametrize("method,path,status", [
+    ("GET", "/api/v1/users/me/blocks", 200),
+    ("PUT", f"/api/v1/users/me/blocks/{uuid4()}", 204),
+    ("DELETE", f"/api/v1/users/me/blocks/{uuid4()}", 204),
+    ("POST", "/api/v1/users/reports", 201),
+    ("GET", "/api/v1/users/admin/reports?estado=pendiente", 200),
+    ("PATCH", f"/api/v1/users/admin/reports/{uuid4()}", 200),
+])
+def test_blocks_and_reports_require_a_token_and_reach_users(monkeypatch, method, path, status):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(status, json=[] if status == 200 else None) if status != 204 else httpx.Response(204)
+    with proxy_client(monkeypatch, upstream) as client:
+        assert client.request(method, path).status_code == 401
+        assert calls == []
+        response = client.request(method, path, headers=token_headers(), json={} if method in ("POST", "PATCH") else None)
+    assert response.status_code == status
+    assert calls[0].url.path == path.split("?")[0]
+    assert calls[0].url.query.decode() == (path.split("?") + [""])[1]
+    assert calls[0].headers["authorization"].startswith("Bearer ")

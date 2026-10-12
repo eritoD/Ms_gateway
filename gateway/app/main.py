@@ -1,6 +1,7 @@
 """FastAPI application entry point for the SportMatch gateway."""
 
 from contextlib import AsyncExitStack, asynccontextmanager
+import asyncio
 
 import httpx
 from fastapi import FastAPI
@@ -18,6 +19,13 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         async with AsyncExitStack() as stack:
+            application.state.notifications = None
+            if settings.notifications_database_url:
+                from app.services.notifications import NotificationWorker
+                worker = NotificationWorker(settings)
+                await asyncio.to_thread(worker.start)
+                stack.push_async_callback(asyncio.to_thread, worker.close)
+                application.state.notifications = worker.repository
             for name, url in (("users", settings.users_service_url), ("matching", settings.matching_service_url), ("activities", settings.activities_service_url)):
                 if url is not None:
                     client = await stack.enter_async_context(httpx.AsyncClient(
@@ -31,6 +39,7 @@ def create_app() -> FastAPI:
                 application.state.users_client = None
                 application.state.matching_client = None
                 application.state.activities_client = None
+                application.state.notifications = None
 
     application = FastAPI(
         title=settings.app_name,

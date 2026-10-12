@@ -21,6 +21,8 @@ BODY_EXAMPLES = {
     "/{user_id}/preferences": {"deportes": [{"deporte_codigo": "tenis", "nivel": 3}], "disponibilidad": [{"dia_semana": "lunes", "hora_inicio": "18:00", "hora_fin": "20:00"}]},
     "/{user_id}/consents": {"type": "privacy", "purpose": "Uso de preferencias", "document_version": "v1", "method": "app"},
     "/athletes/cards": ["10000000-0000-4000-8000-000000000002"],
+    "/reports": {"tipo": "usuario", "objetivo_id": "10000000-0000-4000-8000-000000000002", "objetivo_nombre": "Ana P.", "motivo": "Spam o publicidad", "detalle": ""},
+    "/admin/reports/{report_id}": {"estado": "revisado"},
 }
 
 
@@ -59,6 +61,11 @@ for path, methods, public in [
     ("/suggestions", ["GET"], False),
     ("/athletes/cards", ["POST"], False),
     ("/athletes/{user_id}", ["GET"], False),
+    ("/me/blocks", ["GET"], False),
+    ("/me/blocks/{user_id}", ["PUT", "DELETE"], False),
+    ("/reports", ["POST"], False),
+    ("/admin/reports", ["GET"], False),
+    ("/admin/reports/{report_id}", ["PATCH"], False),
     ("/{user_id}/profile", ["GET", "PUT"], False),
     ("/{user_id}/roles", ["GET"], False),
     ("/{user_id}/preferences", ["GET", "PUT"], False),
@@ -72,7 +79,7 @@ for path, methods, public in [
             "parameters": [
                 {"name": name, "in": "path", "required": True,
                  "schema": {"type": "string", "format": "uuid"}}
-                for name in ("user_id", "consent_id") if "{" + name + "}" in path
+                for name in ("user_id", "consent_id", "report_id") if "{" + name + "}" in path
             ],
         }
         if path == "/suggestions":
@@ -95,7 +102,7 @@ for path, methods, public in [
             ]:
                 documentation["parameters"].append({"name": name, "in": "query", "required": False,
                                                      "schema": schema, "description": description})
-        if method in ("POST", "PUT"):
+        if method in ("POST", "PUT", "PATCH") and path in BODY_EXAMPLES:
             documentation["requestBody"] = {
                 "required": True, "content": {"application/json": {
                     "schema": {"type": "array", "items": {"type": "string", "format": "uuid"}, "maxItems": 100}

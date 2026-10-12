@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     matching_service_url: HttpUrl | None = None
     activities_service_url: HttpUrl | None = None
     users_timeout_seconds: float = Field(default=10, gt=0, le=120)
+    notifications_database_url: str | None = None
+    matching_database_url: str | None = None
+    activities_database_url: str | None = None
+    push_enabled: bool = False
+    expo_access_token: SecretStr | None = None
 
     @field_validator("users_service_url", "matching_service_url", "activities_service_url")
     @classmethod
