@@ -25,10 +25,13 @@ services:
       USERS_SERVICE_URL: "http://ms_users:8001"
       MATCHING_SERVICE_URL: "http://ms_matching:8002"
       ACTIVITIES_SERVICE_URL: "http://ms_activities:8003"
+      # Opcional: sin CLUBS_SERVICE_URL las rutas de clubes y pagos responden 503.
+      CLUBS_SERVICE_URL: "${CLUBS_SERVICE_URL:-}"
       USERS_TIMEOUT_SECONDS: "${USERS_TIMEOUT_SECONDS:-10}"
       NOTIFICATIONS_DATABASE_URL: "${USERS_DATABASE_URL:?Configure USERS_DATABASE_URL en .env}"
       MATCHING_DATABASE_URL: "${MATCHING_DATABASE_URL:?Configure MATCHING_DATABASE_URL en .env}"
       ACTIVITIES_DATABASE_URL: "${ACTIVITIES_DATABASE_URL:?Configure ACTIVITIES_DATABASE_URL en .env}"
+      CLUBS_DATABASE_URL: "${CLUBS_DATABASE_URL:-}"
       PUSH_ENABLED: "${PUSH_ENABLED:-false}"
       EXPO_ACCESS_TOKEN: "${EXPO_ACCESS_TOKEN:-}"
     depends_on:
@@ -83,11 +86,41 @@ services:
       JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
       JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
       USERS_SERVICE_URL: "http://ms_users:8001"
+      CHAT_ATTACHMENT_HOSTS: "${CHAT_ATTACHMENT_HOSTS:-}"
     depends_on:
       ms_users:
         condition: service_healthy
     expose:
       - "8002"
+    restart: unless-stopped
+
+  # Solo web. No es dependencia del gateway: si no arranca (p. ej. faltan migraciones),
+  # el resto de la app sigue funcionando. Perfil "clubs": docker compose --profile clubs up
+  ms_club:
+    profiles: ["clubs"]
+    build:
+      context: ../ms-club
+    environment:
+      DB_HOST: "${CLUBS_DB_HOST:-host.docker.internal}"
+      DB_PORT: "${CLUBS_DB_PORT:-5432}"
+      DB_USER: "${CLUBS_DB_USER:-sportmatch_clubs}"
+      DB_PASSWORD: "${CLUBS_DB_PASSWORD:?Configure CLUBS_DB_PASSWORD en .env}"
+      DB_NAME: "${CLUBS_DB_NAME:-sportmatch_clubs}"
+      JWT_SECRET: "${JWT_SECRET:?Configure JWT_SECRET en .env}"
+      JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
+      JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
+      USERS_SERVICE_URL: "http://ms_users:8001"
+      WEBPAY_MOCK_MODE: "${WEBPAY_MOCK_MODE:-false}"
+      WEBPAY_ENVIRONMENT: "${WEBPAY_ENVIRONMENT:-INTEGRATION}"
+      WEBPAY_COMMERCE_CODE: "${WEBPAY_COMMERCE_CODE:-}"
+      WEBPAY_API_KEY: "${WEBPAY_API_KEY:-}"
+      WEBPAY_PUBLIC_URL: "${WEBPAY_PUBLIC_URL:?Dirección del gateway que alcanza el navegador}"
+      WEBPAY_FRONTEND_RETURN_URL: "${WEBPAY_FRONTEND_RETURN_URL:?Página del sitio web a la que vuelve el pago}"
+    depends_on:
+      ms_users:
+        condition: service_healthy
+    expose:
+      - "8004"
     restart: unless-stopped
 
   users_migrate:

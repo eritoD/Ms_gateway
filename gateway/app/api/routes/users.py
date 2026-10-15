@@ -23,6 +23,9 @@ BODY_EXAMPLES = {
     "/athletes/cards": ["10000000-0000-4000-8000-000000000002"],
     "/reports": {"tipo": "usuario", "objetivo_id": "10000000-0000-4000-8000-000000000002", "objetivo_nombre": "Ana P.", "motivo": "Spam o publicidad", "detalle": ""},
     "/admin/reports/{report_id}": {"estado": "revisado"},
+    "/block": {"blockedUserId": "10000000-0000-4000-8000-000000000002"},
+    "/location": {"latitud": -33.45694, "longitud": -70.64827, "precision_m": 15},
+    "/chat-preferences": {"muteUserIds": ["10000000-0000-4000-8000-000000000002"], "unmuteUserIds": []},
 }
 
 
@@ -48,6 +51,8 @@ async def forward_request(request: Request, service: UsersService) -> Response:
         "content-type", "www-authenticate", "allow", "cache-control", "content-disposition",
     ) if name in upstream.headers}
     response_headers["cache-control"] = "no-store"
+    if upstream.status_code in (301, 302, 303, 307, 308) and "location" in upstream.headers:
+        response_headers["location"] = upstream.headers["location"]
     return Response(content=upstream.content, status_code=upstream.status_code, headers=response_headers)
 
 
@@ -63,6 +68,14 @@ for path, methods, public in [
     ("/athletes/{user_id}", ["GET"], False),
     ("/me/blocks", ["GET"], False),
     ("/me/blocks/{user_id}", ["PUT", "DELETE"], False),
+    # HU-51. /blocks/check is for other services (it answers only to one of the two people or an
+    # admin) and is deliberately not exposed to the app.
+    ("/block", ["POST"], False),
+    ("/block/{blocked_user_id}", ["DELETE"], False),
+    ("/blocks/me", ["GET"], False),
+    ("/chat-preferences", ["GET", "PATCH"], False),
+    # Live position for recommending nearby people (Ms_Users decides when it is worth saving a new one).
+    ("/location", ["GET", "PUT", "DELETE"], False),
     ("/reports", ["POST"], False),
     ("/admin/reports", ["GET"], False),
     ("/admin/reports/{report_id}", ["PATCH"], False),
@@ -79,7 +92,7 @@ for path, methods, public in [
             "parameters": [
                 {"name": name, "in": "path", "required": True,
                  "schema": {"type": "string", "format": "uuid"}}
-                for name in ("user_id", "consent_id", "report_id") if "{" + name + "}" in path
+                for name in ("user_id", "consent_id", "report_id", "blocked_user_id") if "{" + name + "}" in path
             ],
         }
         if path == "/suggestions":

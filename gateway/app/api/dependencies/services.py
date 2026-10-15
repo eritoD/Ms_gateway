@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException, Request
 
 from app.core.config import Settings, get_settings
 from app.services.activities_service import ActivitiesService
+from app.services.clubs_service import ClubsService
 from app.services.gateway_service import GatewayService
 from app.services.health_service import HealthService
 from app.services.token_service import TokenService
@@ -18,6 +19,13 @@ def get_matching_service(request: Request) -> MatchingService:
     if client is None:
         raise HTTPException(status_code=503, detail="Ms_Matching no está configurado")
     return MatchingService(client)
+
+
+def get_clubs_service(request: Request) -> ClubsService:
+    client = getattr(request.app.state, "clubs_client", None)
+    if client is None:
+        raise HTTPException(status_code=503, detail="Ms_Club no está configurado")
+    return ClubsService(client)
 
 
 def get_users_service(request: Request) -> UsersService:

@@ -106,6 +106,43 @@ El registro y el login son públicos. Las demás rutas exigen un token válido; 
 
 La colección de `../Ms_Users/postman` puede usar `http://localhost:8000` como URL base. El gateway conserva cuerpos, códigos HTTP y errores del microservicio. Si este no está disponible devuelve `503`; si vence el tiempo de espera devuelve `504`.
 
+## Clubes, pagos, chats y bloqueos
+
+Rutas agregadas con las HU-30 a 52. El gateway solo autentica y reenvía (conserva cuerpo, código HTTP y
+errores); las reglas de cada una están en su servicio. Las rutas que actúan en nombre de una persona exigen
+un token válido **antes** de llegar al servicio; las públicas lo reenvían si viene. Las rutas fijas se
+registran antes que las que llevan un identificador, para que una pública como `/api/v1/clubs/{club_id}` no
+tape a `/api/v1/clubs/me`.
+
+**ms-club** (`CLUBS_SERVICE_URL`, puerto 8004; sin configurar responde `503` y `/health/ready` no lo espera):
+
+| Ruta | Acceso |
+|---|---|
+| `GET /api/v1/clubs`, `/deportes`, `/{club_id}` | Pública (directorio y perfil) |
+| `GET /api/v1/clubs/announcements`, `/announcements/{id}` | Pública (sección de convocatorias) |
+| `POST /api/v1/clubs`, `GET /me`, `PATCH /{club_id}`, `PUT/DELETE /{club_id}/deportes/{deporte_id}` | Token (representante del club) |
+| `POST /{club_id}/announcements`, `POST /{club_id}/announcements/{id}/close` | Token (representante) |
+| `GET/POST /announcements/{id}/applications`, `GET /announcements/applications/me`, `PATCH /announcements/applications/{id}` | Token (postular, seguir y revisar candidatos) |
+| `GET/POST /{club_id}/notices`, `GET /notices/me` | Token (comunicados) |
+| `GET /api/v1/payments/plans` | Pública |
+| `POST /api/v1/payments/webpay/initiate`, `POST /webpay/commit`, `GET /subscription/me` | Token |
+| `GET, POST /api/v1/payments/webpay/return` | Pública: es donde Webpay devuelve al navegador, que no lleva sesión. Responde `303` hacia la app (`WEBPAY_FRONTEND_RETURN_URL` de ms-club). |
+| `GET, POST /api/v1/payments/webpay/mock`, `GET /webpay/mock/decision` | Pública, pero ms-club responde 404 salvo con `WEBPAY_MOCK_MODE=true` (desarrollo) |
+
+**Ms_Matching**, además de `/api/v1/matching`: `GET /api/v1/chats`, `GET/POST /api/v1/chats/{id}/messages` y
+`PATCH /api/v1/chats/{id}/read`, todas con token. El WebSocket `wss://<gateway>/api/v1/chats/ws` (app y sitio web) sí se reenvía: el gateway valida
+el token de la primera trama (`{"type":"auth","token":"..."}`) y solo entonces abre la conexión con Ms_Matching;
+después retransmite en ambos sentidos y entrega al cliente el código de cierre del servicio. No pasa cookies ni
+cabeceras del cliente, rechaza tramas binarias o de más de 4096 caracteres, y si el navegador envía un `Origin`
+fuera de `CORS_ALLOWED_ORIGINS` rechaza el handshake. El sitio web de `ms-club` necesita su origen en esa lista.
+
+**Ms_Users**, nuevas: `POST /api/v1/users/block`, `DELETE /block/{id}`, `GET /blocks/me`,
+`GET/PATCH /chat-preferences` y `GET/PUT/DELETE /location` (posición en vivo para recomendar personas cercanas), con token. `/blocks/check` es para que lo consulten otros servicios y no se expone.
+
+El proxy ahora reenvía la cabecera `Location` de una respuesta `3xx` del servicio (antes la descartaba, y
+el retorno de Webpay quedaba sin destino). Para que `WEBPAY_PUBLIC_URL` de ms-club apunte a este gateway, debe
+ser la dirección que alcanza el navegador del usuario.
+
 ## Compatibilidad de la base existente
 
 Antes de aplicar la migración se creó un respaldo de USERS en `/Users/elcacas/sportmach-db/backups/users-before-gateway-20260914-180300.dump`.

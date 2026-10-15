@@ -229,3 +229,37 @@ def test_pagination_and_marking_visible_do_not_read_new_arrivals(system):
     page=repo.inbox(B,None,1)
     assert page['unread']==1 and page['next_cursor']
     assert len(repo.inbox(B,page['next_cursor'],1)['items'])==1
+
+
+def test_clubs_outbox_reaches_the_inbox_of_the_right_person(system):
+    _, repo, _, pool = system
+    with pool.connection() as conn:
+        conn.execute('CREATE SCHEMA clubs_api')
+        conn.execute('''CREATE TABLE clubs_api.notification_outbox (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            user_id uuid NOT NULL, kind text NOT NULL, title text NOT NULL, body text NOT NULL, data jsonb NOT NULL,
+            created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP, published_at timestamptz)''')
+        conn.execute("INSERT INTO clubs_api.notification_outbox(user_id,kind,title,body,data) VALUES (%s,'postulacion','Revisión','Te preseleccionaron','{}')", (B,))
+    for _ in range(2):  # a replay must not duplicate
+        repo.ingest(pool, 'clubs_api')
+    assert rows(pool, "SELECT user_id,kind,source FROM notifications.inbox WHERE source='clubs_api'") == [(B, 'postulacion', 'clubs_api')]
+    assert rows(pool, 'SELECT count(*) FROM clubs_api.notification_outbox WHERE published_at IS NULL') == [(0,)]
+
+
+def test_the_worker_reads_clubs_only_when_configured(monkeypatch):
+    import app.services.notifications as module
+
+    class Fake(NotificationWorker):
+        def pool(self, url):
+            return url
+
+        def run(self):  # no network or database in this test
+            pass
+
+    monkeypatch.setattr(module, 'NotificationRepository', lambda pool: type('R', (), {'migrate': lambda self: None})())
+    for url, expected in ((None, ['matching_api', 'activities_api']),
+                          ('postgresql://c', ['matching_api', 'activities_api', 'clubs_api'])):
+        worker = Fake(Settings(jwt_secret=SECRET, notifications_database_url='postgresql://n', matching_database_url='postgresql://m',
+                               activities_database_url='postgresql://a', clubs_database_url=url))
+        worker.start()
+        worker.thread.join()
+        assert [schema for _, schema in worker.sources] == expected

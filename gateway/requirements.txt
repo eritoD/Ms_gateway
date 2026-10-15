@@ -5,3 +5,5 @@ PyJWT[crypto]==2.14.0
 pytest==8.4.1
 uvicorn==0.35.0
 psycopg[binary,pool]>=3.1.18,<4
+# Relay of the chat WebSocket to Ms_Matching (HU-52); uvicorn also needs it to serve WebSockets.
+websockets>=13,<18

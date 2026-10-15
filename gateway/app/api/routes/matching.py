@@ -39,3 +39,39 @@ for path, methods, summary, example in [
             }}}
         router.add_api_route(path, proxy, methods=[method], response_class=Response,
                              summary=summary, openapi_extra=docs)
+
+
+# Chat list with unread counters, read state, locations and attachments. Served by the same
+# Ms_Matching; the real-time socket (/api/v1/chats/ws) is a WebSocket and is not proxied here.
+chats_router = APIRouter(prefix="/api/v1/chats", tags=["Chats"], dependencies=[Depends(get_current_principal)])
+
+CHAT_MESSAGE_EXAMPLE = {
+    "type": "LOCATION", "content": "Punto de encuentro en la cancha principal",
+    "latitude": -33.5833, "longitude": -70.6333, "locationName": "Cancha 2 - Complejo Deportivo"}
+
+for path, methods, summary, example in [
+    ("", ["GET"], "Mis conversaciones activas, con mensajes no leídos", None),
+    ("/{conversation_id}/messages", ["GET", "POST"],
+     "Leer (marca como leído) o enviar texto, imagen, archivo o ubicación", CHAT_MESSAGE_EXAMPLE),
+    ("/{conversation_id}/read", ["PATCH"], "Marcar como leídos los mensajes de la otra persona", None),
+]:
+    for method in methods:
+        docs = {"parameters": [
+            {"name": "conversation_id", "in": "path", "required": True, "schema": {"type": "string", "format": "uuid"}}
+        ] if "{conversation_id}" in path else []}
+        if method == "GET" and path == "":
+            docs["parameters"] += [
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}},
+                {"name": "offset", "in": "query", "schema": {"type": "integer", "minimum": 0, "default": 0}},
+            ]
+        if method == "GET" and path.endswith("/messages"):
+            docs["parameters"] += [
+                {"name": name, "in": "query", "schema": {"type": "integer", "minimum": 0}}
+                for name in ("after_id", "before_id", "limit")
+            ]
+        if method == "POST":
+            docs["requestBody"] = {"required": True, "content": {"application/json": {
+                "schema": {"type": "object"}, "example": example}}}
+        chats_router.add_api_route(path, proxy, methods=[method], response_class=Response,
+                                   summary=summary, openapi_extra=docs)
+

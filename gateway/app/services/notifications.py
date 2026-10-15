@@ -34,7 +34,8 @@ class NotificationWorker:
             self.repository.migrate()
             self.sources = [(self.pool(url), schema) for url, schema in (
                 (self.settings.matching_database_url, 'matching_api'),
-                (self.settings.activities_database_url, 'activities_api')) if url]
+                (self.settings.activities_database_url, 'activities_api'),
+                (self.settings.clubs_database_url, 'clubs_api')) if url]
             self.thread = threading.Thread(target=self.run, name='notifications', daemon=True)
             self.thread.start()
         except Exception:
