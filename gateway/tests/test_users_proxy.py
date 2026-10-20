@@ -55,6 +55,17 @@ def test_register_forwards_body_query_and_status_without_auth(monkeypatch):
     assert response.headers["cache-control"] == "no-store"
 
 
+def test_register_club_is_public_and_forwarded(monkeypatch):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(201, json={"detail": "ok", "user": {"role": "club_admin"}})
+    with proxy_client(monkeypatch, upstream) as client:
+        response = client.post("/api/v1/users/auth/register-club", content=b'{"nombre":"Rocio"}', headers={"Content-Type": "application/json"})
+    assert response.status_code == 201
+    assert calls[0].url.path == "/api/v1/users/auth/register-club"
+
+
 def test_private_route_requires_valid_token_before_forwarding(monkeypatch):
     calls = []
     def upstream(request):

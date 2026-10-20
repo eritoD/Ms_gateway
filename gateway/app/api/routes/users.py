@@ -12,6 +12,7 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
 BODY_EXAMPLES = {
     "/auth/register": {"email": "nuevo@example.com", "password": "UnaClaveDePrueba2026!", "nombre": "Ana", "apellido_paterno": "Prueba"},
+    "/auth/register-club": {"email": "representante@club.example.com", "password": "UnaClaveDePrueba2026!", "nombre": "Rocio", "apellido_paterno": "Soto"},
     "/auth/login": {"email": "usuario02@sportmach.example.com", "password": "SportmachDemo2026!"},
     "/auth/email-verification/request": {"email": "nuevo@example.com"},
     "/auth/email-verification/confirm": {"email": "nuevo@example.com", "code": "123456"},
@@ -58,6 +59,7 @@ async def forward_request(request: Request, service: UsersService) -> Response:
 
 for path, methods, public in [
     ("/auth/register", ["POST"], True),
+    ("/auth/register-club", ["POST"], True),
     ("/auth/login", ["POST"], True),
     ("/auth/email-verification/request", ["POST"], True),
     ("/auth/email-verification/confirm", ["POST"], True),
