@@ -1,7 +1,7 @@
 """Durable inbox and device subscriptions. Ownership always comes from the JWT."""
 import hashlib
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 from psycopg import sql
@@ -68,10 +68,32 @@ class NotificationRepository:
             cur.execute(sql.SQL('SELECT * FROM {} WHERE published_at IS NULL ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED').format(table))
             rows = cur.fetchall()
             with self.pool.connection() as dest:
+                muted_table = dest.execute("SELECT to_regclass('public.silencio_usuario')").fetchone()[0] is not None
                 for row in rows:
+                    if muted_table and self._muted_message(cur, dest, schema, row):
+                        continue  # acknowledged below, never shown nor pushed
                     dest.execute('''INSERT INTO notifications.inbox(id,source,source_id,user_id,kind,title,body,data,created_at)
                         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(source,source_id) DO NOTHING''',
                         (uuid4(), schema, row['id'], row['user_id'], row['kind'], row['title'], row['body'], Jsonb(row['data']), row['created_at']))
             if rows:
                 cur.execute(sql.SQL('UPDATE {} SET published_at=CURRENT_TIMESTAMP WHERE id=ANY(%s)').format(table), ([r['id'] for r in rows],))
             cur.execute(sql.SQL("DELETE FROM {} WHERE published_at < CURRENT_TIMESTAMP - interval '7 days'").format(table))
+
+    @staticmethod
+    def _muted_message(source_cur, dest, schema, row):
+        # HU-51: a chat message from someone the recipient muted raises no alert. The event
+        # only carries the match, so the sender is the other person of that match.
+        if schema != 'matching_api' or row['kind'] != 'mensaje':
+            return False
+        try:
+            match_id = UUID(str((row['data'] or {}).get('matchId')))
+        except ValueError:
+            return False
+        source_cur.execute('''SELECT CASE WHEN sender_id=%s THEN recipient_id ELSE sender_id END AS other
+            FROM matching_api.requests WHERE id=%s AND %s IN (sender_id, recipient_id)''',
+            (row['user_id'], match_id, row['user_id']))
+        other = source_cur.fetchone()
+        if other is None:
+            return False
+        return dest.execute('SELECT 1 FROM public.silencio_usuario WHERE silenciador_id=%s AND silenciado_id=%s',
+            (row['user_id'], other['other'])).fetchone() is not None

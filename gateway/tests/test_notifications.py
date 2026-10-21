@@ -142,6 +142,22 @@ def test_transactional_events_idempotency_and_correct_recipients(system):
     assert rows(pool,'SELECT user_id,kind FROM notifications.inbox ORDER BY created_at,source_id') == [(B,'solicitud'),(A,'match'),(B,'mensaje')]
 
 
+def test_messages_from_muted_people_raise_no_notification(system):
+    _, repo, _, pool = system
+    rid = request(pool)  # A -> B
+    with pool.connection() as conn:
+        conn.execute('CREATE TABLE public.silencio_usuario (silenciador_id uuid NOT NULL, silenciado_id uuid NOT NULL, PRIMARY KEY (silenciador_id, silenciado_id))')
+        conn.execute('DELETE FROM matching_api.notification_outbox')
+        for user in (A, B):
+            conn.execute("INSERT INTO matching_api.notification_outbox(user_id,kind,title,body,data) VALUES (%s,'mensaje','Nuevo mensaje','Hola',%s::jsonb)",
+                (user, json.dumps({'matchId': str(rid)})))
+        conn.execute('INSERT INTO public.silencio_usuario VALUES (%s,%s)', (B, A))  # B muted A
+    ingest(repo, pool)
+    assert rows(pool, "SELECT user_id FROM notifications.inbox WHERE kind='mensaje'") == [(A,)]
+    # The event is acknowledged even when dropped, so it is not retried forever.
+    assert rows(pool, 'SELECT count(*) FROM matching_api.notification_outbox WHERE published_at IS NULL') == [(0,)]
+
+
 def test_activity_events_exclude_actor_and_ignore_noop_updates(system):
     _, repo, _, pool = system
     aid = activity(pool)
