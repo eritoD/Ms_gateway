@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     push_enabled: bool = False
     expo_access_token: SecretStr | None = None
 
+    @field_validator("users_service_url", "matching_service_url", "activities_service_url", "clubs_service_url", mode="before")
+    @classmethod
+    def empty_service_urls_are_unset(cls, value: object) -> object:
+        # compose.yaml passes "" when the variable is missing (e.g. CLUBS_SERVICE_URL).
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @field_validator("users_service_url", "matching_service_url", "activities_service_url", "clubs_service_url")
     @classmethod
     def validate_users_origin(cls, value: HttpUrl | None) -> HttpUrl | None:

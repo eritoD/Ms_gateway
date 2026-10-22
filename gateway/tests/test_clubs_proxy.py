@@ -295,3 +295,13 @@ def test_openapi_documents_the_new_users_routes(monkeypatch):
                                        "schema": {"type": "string", "format": "uuid"}}
     assert "blockedUserId" in paths["/api/v1/users/block"]["post"]["requestBody"]["content"]["application/json"]["example"]
     assert "muteUserIds" in paths["/api/v1/users/chat-preferences"]["patch"]["requestBody"]["content"]["application/json"]["example"]
+
+
+def test_empty_clubs_service_url_is_unset(monkeypatch):
+    # compose.yaml passes CLUBS_SERVICE_URL="" when ms-club is not configured.
+    monkeypatch.setenv("CLUBS_SERVICE_URL", "")
+    get_settings.cache_clear()
+    try:
+        assert get_settings().clubs_service_url is None
+    finally:
+        get_settings.cache_clear()
