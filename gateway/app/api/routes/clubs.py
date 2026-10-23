@@ -23,6 +23,13 @@ PAGE = {
     "page_size": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20},
 }
 INTEGER_PATH_PARAMETERS = {"deporte_id"}
+PATH_PARAMETERS = ("club_id", "convocatoria_id", "postulacion_id", "deporte_id", "usuario_id", "invitacion_id", "hilo_id")
+MESSAGES = {
+    "after_id": {"type": "integer", "minimum": 0},
+    "before_id": {"type": "integer", "minimum": 1},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50},
+}
+MESSAGE_EXAMPLE = {"texto": "¿La prueba del sábado es abierta?", "client_message_id": "30000000-0000-4000-8000-000000000001"}
 
 CLUB_EXAMPLE = {"nombre": "Club Deportivo Ñuñoa", "descripcion": "Fútbol y tenis para todas las edades.",
                 "comuna": "Ñuñoa", "deporte_ids": [1, 2]}
@@ -55,6 +62,9 @@ CLUBS = [
      None, {"mensaje": "Juego de lateral.", "antecedentes": []}),
     ("/notices/me", ["GET"], False, "Mi bandeja de comunicados de clubes",
      {"club_id": {"type": "string", "format": "uuid"}, "prioridad": {"type": "string", "enum": ["NORMAL", "URGENTE"]}, **PAGE}, None),
+    ("/admins/invitations/accept", ["POST"], False, "Unirme como administrador con un código de invitación",
+     None, {"codigo": "K7QM2XWP9D"}),
+    ("/consultas/me", ["GET"], False, "Mis conversaciones con clubes (deportista)", None, None),
     ("/{club_id}", ["GET"], True, "Perfil público de un club", None, None),
     ("/{club_id}", ["PATCH"], False, "Editar el perfil del club (dueño)", None,
      {"descripcion": "Nueva descripción", "deporte_ids": [1]}),
@@ -66,6 +76,19 @@ CLUBS = [
       "prioridad": {"type": "string", "enum": ["NORMAL", "URGENTE"]}, **PAGE}, None),
     ("/{club_id}/notices", ["POST"], False, "Publicar un comunicado (club dueño)", None,
      {"titulo": "Cambio de horario", "contenido": "La prueba del sábado empieza a las 9:00.", "audiencia": "TODOS", "prioridad": "NORMAL"}),
+    ("/{club_id}/admins", ["GET"], False, "Administradores del club", None, None),
+    ("/{club_id}/admins/invitations", ["GET"], False, "Invitaciones vigentes para administrar el club", None, None),
+    ("/{club_id}/admins/invitations", ["POST"], False, "Crear un código de invitación de administrador", None, {}),
+    ("/{club_id}/admins/invitations/{invitacion_id}", ["DELETE"], False, "Revocar una invitación", None, None),
+    ("/{club_id}/admins/{usuario_id}", ["DELETE"], False, "Quitar a un administrador o salir del club", None, None),
+    # "me" va antes que {hilo_id} para que la documentación no confunda las dos rutas.
+    ("/{club_id}/consultas/me/messages", ["GET"], False, "Mi conversación con el club (deportista)", MESSAGES, None),
+    ("/{club_id}/consultas/me/messages", ["POST"], False, "Escribirle al club (deportista)", None, MESSAGE_EXAMPLE),
+    ("/{club_id}/consultas/me/read", ["POST"], False, "Marcar como leídas las respuestas del club", None, {"hasta_id": 42}),
+    ("/{club_id}/consultas", ["GET"], False, "Bandeja de consultas del club (administradores)", None, None),
+    ("/{club_id}/consultas/{hilo_id}/messages", ["GET"], False, "Mensajes de una consulta (administradores)", MESSAGES, None),
+    ("/{club_id}/consultas/{hilo_id}/messages", ["POST"], False, "Responder una consulta (administradores)", None, MESSAGE_EXAMPLE),
+    ("/{club_id}/consultas/{hilo_id}/read", ["POST"], False, "Marcar como leída una consulta", None, {"hasta_id": 42}),
 ]
 
 PAYMENTS = [
@@ -91,7 +114,7 @@ def register(target: APIRouter, routes, prefix_name: str) -> None:
             parameters = [
                 {"name": name, "in": "path", "required": True,
                  "schema": {"type": "integer"} if name in INTEGER_PATH_PARAMETERS else {"type": "string", "format": "uuid"}}
-                for name in ("club_id", "convocatoria_id", "postulacion_id", "deporte_id") if "{" + name + "}" in path
+                for name in PATH_PARAMETERS if "{" + name + "}" in path
             ]
             parameters += [{"name": name, "in": "query", "required": False, "schema": schema}
                            for name, schema in (query or {}).items()]

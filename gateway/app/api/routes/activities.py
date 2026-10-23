@@ -30,6 +30,8 @@ router.add_api_route("/history", proxy, methods=["GET"], response_class=Response
     summary="Historial: actividades ya realizadas donde organizaste o participaste", openapi_extra={"parameters": [
         {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100}},
     ]})
+router.add_api_route("/chats", proxy, methods=["GET"], response_class=Response,
+    summary="Chats grupales de las actividades donde participo")
 router.add_api_route("/{activity_id}/participants", proxy, methods=["GET"], response_class=Response,
     summary="Participantes de una actividad (solo organizador y aceptados)",
     openapi_extra={"parameters": [{"name": "activity_id", "in": "path", "required": True, "schema": {"type": "string", "format": "uuid"}}]})
@@ -55,6 +57,10 @@ for path, method, status_code, summary in [
     ("/{activity_id}/applications", "GET", 200, "Ver postulaciones recibidas (solo organizador)"),
     ("/{activity_id}/applications/{application_id}/accept", "POST", 200, "Aceptar una postulación y descontar un cupo"),
     ("/{activity_id}/applications/{application_id}/reject", "POST", 200, "Rechazar una postulación"),
+    ("/{activity_id}/chat/messages", "GET", 200, "Mensajes del chat grupal (organizador y aceptados)"),
+    ("/{activity_id}/chat/messages", "POST", 201, "Enviar un mensaje al chat grupal"),
+    ("/{activity_id}/chat/read", "POST", 204, "Marcar como leído el chat grupal"),
+    ("/{activity_id}/chat/mute", "PUT", 204, "Silenciar o reactivar los avisos del chat grupal"),
 ]:
     router.add_api_route(path, proxy, methods=[method], response_class=Response, status_code=status_code,
         summary=summary, name=f"activities_{method.lower()}_{path.strip('/').replace('/', '_')}",

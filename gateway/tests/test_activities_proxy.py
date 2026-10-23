@@ -152,3 +152,27 @@ def test_cancel_my_application_requires_token_and_reaches_activities(monkeypatch
         assert response.status_code == 204 and response.content == b''
     assert [(c.method, c.url.path) for c in calls] == [('DELETE', path)]
     assert 'x-user-id' not in calls[0].headers
+
+
+def test_group_chat_requires_token_and_forwards_path_and_body(monkeypatch):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(201 if request.method == 'POST' and request.url.path.endswith('/messages') else 200,
+                              json={'ok': True})
+    with activities_client(monkeypatch, upstream) as client:
+        base = '/api/v1/activities/abc/chat'
+        routes = [('GET', '/api/v1/activities/chats'), ('GET', base + '/messages?after_id=7&limit=50'),
+                  ('POST', base + '/messages'), ('POST', base + '/read'), ('PUT', base + '/mute')]
+        for method, path in routes:
+            assert client.request(method, path).status_code == 401
+        assert calls == []
+        body = b'{"text": "Hola grupo", "client_message_id": "30000000-0000-4000-8000-000000000001"}'
+        for method, path in routes:
+            response = client.request(method, path, headers={**token_headers(), 'X-User-ID': 'forged'},
+                                      content=body if method != 'GET' else None)
+            assert response.status_code in (200, 201)
+    assert [(c.method, c.url.path) for c in calls] == [(m, p.split('?')[0]) for m, p in routes]
+    assert calls[1].url.query == b'after_id=7&limit=50'
+    assert calls[2].content == body
+    assert all('x-user-id' not in c.headers for c in calls)
