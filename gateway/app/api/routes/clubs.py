@@ -23,7 +23,7 @@ PAGE = {
     "page_size": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20},
 }
 INTEGER_PATH_PARAMETERS = {"deporte_id"}
-PATH_PARAMETERS = ("club_id", "convocatoria_id", "postulacion_id", "deporte_id", "usuario_id", "invitacion_id", "hilo_id")
+PATH_PARAMETERS = ("club_id", "convocatoria_id", "postulacion_id", "deporte_id", "usuario_id", "asignacion_id", "hilo_id")
 MESSAGES = {
     "after_id": {"type": "integer", "minimum": 0},
     "before_id": {"type": "integer", "minimum": 1},
@@ -45,7 +45,7 @@ CLUBS = [
       "zona": {"type": "string"}, **PAGE}, None),
     ("", ["POST"], False, "Crear el club del representante (rol club_admin)", None, CLUB_EXAMPLE),
     ("/deportes", ["GET"], True, "Catálogo de deportes", None, None),
-    ("/me", ["GET"], False, "El club que administro", None, None),
+    ("/me", ["GET"], False, "El club que administro (activa un correo asignado)", None, None),
     ("/announcements", ["GET"], True, "Sección de convocatorias abiertas",
      {"deporte": {"type": "string"}, "deporte_id": {"type": "integer"}, "categoria": {"type": "string"},
       "edad": {"type": "integer"}, "club_id": {"type": "string", "format": "uuid"},
@@ -62,8 +62,6 @@ CLUBS = [
      None, {"mensaje": "Juego de lateral.", "antecedentes": []}),
     ("/notices/me", ["GET"], False, "Mi bandeja de comunicados de clubes",
      {"club_id": {"type": "string", "format": "uuid"}, "prioridad": {"type": "string", "enum": ["NORMAL", "URGENTE"]}, **PAGE}, None),
-    ("/admins/invitations/accept", ["POST"], False, "Unirme como administrador con un código de invitación",
-     None, {"codigo": "K7QM2XWP9D"}),
     ("/consultas/me", ["GET"], False, "Mis conversaciones con clubes (deportista)", None, None),
     ("/{club_id}", ["GET"], True, "Perfil público de un club", None, None),
     ("/{club_id}", ["PATCH"], False, "Editar el perfil del club (dueño)", None,
@@ -77,9 +75,11 @@ CLUBS = [
     ("/{club_id}/notices", ["POST"], False, "Publicar un comunicado (club dueño)", None,
      {"titulo": "Cambio de horario", "contenido": "La prueba del sábado empieza a las 9:00.", "audiencia": "TODOS", "prioridad": "NORMAL"}),
     ("/{club_id}/admins", ["GET"], False, "Administradores del club", None, None),
-    ("/{club_id}/admins/invitations", ["GET"], False, "Invitaciones vigentes para administrar el club", None, None),
-    ("/{club_id}/admins/invitations", ["POST"], False, "Crear un código de invitación de administrador", None, {}),
-    ("/{club_id}/admins/invitations/{invitacion_id}", ["DELETE"], False, "Revocar una invitación", None, None),
+    ("/{club_id}/admins/assignments", ["GET"], False, "Correos asignados como administradores (pendientes)", None, None),
+    ("/{club_id}/admins/assignments", ["POST"], False, "Asignar un correo como administrador (principal)", None,
+     {"email": "persona@club.cl"}),
+    ("/{club_id}/admins/assignments/{asignacion_id}", ["DELETE"], False, "Revocar un correo pendiente (principal)",
+     None, None),
     ("/{club_id}/admins/{usuario_id}", ["DELETE"], False, "Quitar a un administrador o salir del club", None, None),
     # "me" va antes que {hilo_id} para que la documentación no confunda las dos rutas.
     ("/{club_id}/consultas/me/messages", ["GET"], False, "Mi conversación con el club (deportista)", MESSAGES, None),
