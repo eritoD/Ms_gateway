@@ -38,5 +38,33 @@ services:
       postgres:
         condition: service_healthy
 
+  # Crea el rol y la base de ms-club si faltan y aplica sus scripts (tablas base,
+  # migraciones y planes de prueba). Termina con código 0.
+  clubs_migrate:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-SportmatchLocal2026}"
+      CLUBS_DB_PASSWORD: "${CLUBS_DB_PASSWORD:?Configure CLUBS_DB_PASSWORD en .env}"
+    volumes:
+      - ../Ms-club/db:/clubs-db:ro
+      - ./docker/clubs-migrate.sh:/clubs-migrate.sh:ro
+    entrypoint: ["sh", "/clubs-migrate.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # En Windows ms-club corre siempre (sin el perfil "clubs") contra el PostgreSQL del contenedor.
+  ms_club:
+    profiles: !reset []
+    build:
+      context: ../Ms-club
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    depends_on:
+      clubs_migrate:
+        condition: service_completed_successfully
+
 volumes:
   pgdata:
