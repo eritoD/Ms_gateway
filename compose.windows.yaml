@@ -54,6 +54,12 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # El worker de notificaciones del gateway se conecta a la base de ms-club (CLUBS_DATABASE_URL).
+  gateway:
+    depends_on:
+      clubs_migrate:
+        condition: service_completed_successfully
+
   # En Windows ms-club corre siempre (sin el perfil "clubs") contra el PostgreSQL del contenedor.
   ms_club:
     profiles: !reset []
