@@ -23,12 +23,14 @@ PAGE = {
     "page_size": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20},
 }
 INTEGER_PATH_PARAMETERS = {"deporte_id"}
-PATH_PARAMETERS = ("club_id", "convocatoria_id", "postulacion_id", "deporte_id", "usuario_id", "asignacion_id", "hilo_id")
+PATH_PARAMETERS = ("club_id", "convocatoria_id", "postulacion_id", "deporte_id", "usuario_id", "asignacion_id", "hilo_id",
+                   "canal_id")
 MESSAGES = {
     "after_id": {"type": "integer", "minimum": 0},
     "before_id": {"type": "integer", "minimum": 1},
     "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50},
 }
+CANAL_EXAMPLE = {"nombre": "Sub-17 avisos", "miembros_escriben": False}
 MESSAGE_EXAMPLE = {"texto": "¿La prueba del sábado es abierta?", "client_message_id": "30000000-0000-4000-8000-000000000001"}
 
 CLUB_EXAMPLE = {"nombre": "Club Deportivo Ñuñoa", "descripcion": "Fútbol y tenis para todas las edades.",
@@ -63,6 +65,11 @@ CLUBS = [
     ("/notices/me", ["GET"], False, "Mi bandeja de comunicados de clubes",
      {"club_id": {"type": "string", "format": "uuid"}, "prioridad": {"type": "string", "enum": ["NORMAL", "URGENTE"]}, **PAGE}, None),
     ("/consultas/me", ["GET"], False, "Mis conversaciones con clubes (deportista)", None, None),
+    ("/canales/me", ["GET"], False, "Canales de clubes donde soy miembro (deportista)", None, None),
+    ("/canales/{canal_id}/messages", ["GET"], False, "Mensajes de un canal (miembro)", MESSAGES, None),
+    ("/canales/{canal_id}/messages", ["POST"], False, "Escribir en un canal (si el club lo permite)", None, MESSAGE_EXAMPLE),
+    ("/canales/{canal_id}/read", ["POST"], False, "Marcar como leído un canal", None, {"hasta_id": 42}),
+    ("/canales/{canal_id}/mute", ["PUT"], False, "Silenciar o reactivar los avisos de un canal", None, {"silenciado": True}),
     ("/{club_id}", ["GET"], True, "Perfil público de un club", None, None),
     ("/{club_id}", ["PATCH"], False, "Editar el perfil del club (dueño)", None,
      {"descripcion": "Nueva descripción", "deporte_ids": [1]}),
@@ -89,6 +96,23 @@ CLUBS = [
     ("/{club_id}/consultas/{hilo_id}/messages", ["GET"], False, "Mensajes de una consulta (administradores)", MESSAGES, None),
     ("/{club_id}/consultas/{hilo_id}/messages", ["POST"], False, "Responder una consulta (administradores)", None, MESSAGE_EXAMPLE),
     ("/{club_id}/consultas/{hilo_id}/read", ["POST"], False, "Marcar como leída una consulta", None, {"hasta_id": 42}),
+    ("/{club_id}/consultas/postulantes/{usuario_id}/messages", ["POST"], False,
+     "Escribirle primero a un postulante (administradores)", None, MESSAGE_EXAMPLE),
+    ("/{club_id}/canales", ["GET"], False, "Canales del club (administradores)", None, None),
+    ("/{club_id}/canales", ["POST"], False, "Crear un canal con los postulantes aceptados", None, CANAL_EXAMPLE),
+    ("/{club_id}/canales/{canal_id}", ["PATCH"], False, "Editar un canal", None, CANAL_EXAMPLE),
+    ("/{club_id}/canales/{canal_id}", ["DELETE"], False, "Eliminar un canal", None, None),
+    ("/{club_id}/canales/{canal_id}/miembros", ["GET"], False, "Miembros de un canal", None, None),
+    ("/{club_id}/canales/{canal_id}/candidatos", ["GET"], False, "Postulantes que se pueden agregar a un canal", None, None),
+    ("/{club_id}/canales/{canal_id}/miembros/{usuario_id}", ["PUT", "DELETE"], False, "Agregar o sacar a un miembro",
+     None, None),
+    ("/{club_id}/canales/{canal_id}/messages", ["GET"], False, "Mensajes de un canal (administradores)", MESSAGES, None),
+    ("/{club_id}/canales/{canal_id}/messages", ["POST"], False, "Publicar en un canal (administradores)", None,
+     MESSAGE_EXAMPLE),
+    ("/{club_id}/canales/{canal_id}/read", ["POST"], False, "Marcar como leído un canal (administradores)", None,
+     {"hasta_id": 42}),
+    ("/{club_id}/canales/{canal_id}/inactividad", ["POST"], False, "Responder el aviso de canal sin uso", None,
+     {"decision": "mantener"}),
 ]
 
 PAYMENTS = [

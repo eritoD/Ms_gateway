@@ -125,7 +125,8 @@ def test_ratings_and_history_require_token_and_reach_activities(monkeypatch):
         return httpx.Response(200, json={'ok': True})
     with activities_client(monkeypatch, upstream) as client:
         routes = [('PUT', '/api/v1/ratings/abc'), ('GET', '/api/v1/ratings/me'), ('GET', '/api/v1/ratings/given'),
-                  ('GET', '/api/v1/activities/history'), ('GET', '/api/v1/activities/abc/participants')]
+                  ('GET', '/api/v1/activities/history'), ('GET', '/api/v1/activities/abc/participants'),
+                  ('DELETE', '/api/v1/activities/abc/participants/def')]
         for method, path in routes:
             assert client.request(method, path, json={'score': 5} if method == 'PUT' else None).status_code == 401
         assert calls == []
