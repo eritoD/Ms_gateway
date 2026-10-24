@@ -57,6 +57,7 @@ for path, method, status_code, summary in [
     ("/{activity_id}/applications", "GET", 200, "Ver postulaciones recibidas (solo organizador)"),
     ("/{activity_id}/applications/{application_id}/accept", "POST", 200, "Aceptar una postulación y descontar un cupo"),
     ("/{activity_id}/applications/{application_id}/reject", "POST", 200, "Rechazar una postulación"),
+    ("/{activity_id}/participants/{user_id}", "DELETE", 204, "Sacar a un participante aceptado (solo organizador)"),
     ("/{activity_id}/chat/messages", "GET", 200, "Mensajes del chat grupal (organizador y aceptados)"),
     ("/{activity_id}/chat/messages", "POST", 201, "Enviar un mensaje al chat grupal"),
     ("/{activity_id}/chat/read", "POST", 204, "Marcar como leído el chat grupal"),
@@ -66,7 +67,7 @@ for path, method, status_code, summary in [
         summary=summary, name=f"activities_{method.lower()}_{path.strip('/').replace('/', '_')}",
         openapi_extra={"parameters": [
             {"name": name, "in": "path", "required": True, "schema": {"type": "string", "format": "uuid"}}
-            for name in ("activity_id", "application_id") if "{" + name + "}" in path
+            for name in ("activity_id", "application_id", "user_id") if "{" + name + "}" in path
         ]})
 
 
