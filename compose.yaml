@@ -112,6 +112,7 @@ services:
       USERS_SERVICE_URL: "http://ms_users:8001"
       WEBPAY_MOCK_MODE: "${WEBPAY_MOCK_MODE:-false}"
       WEBPAY_ENVIRONMENT: "${WEBPAY_ENVIRONMENT:-INTEGRATION}"
+      WEBPAY_WEB_RETURN_URL: "${WEBPAY_WEB_RETURN_URL:-http://localhost:3000/pago/resultado}"
       WEBPAY_COMMERCE_CODE: "${WEBPAY_COMMERCE_CODE:-}"
       WEBPAY_API_KEY: "${WEBPAY_API_KEY:-}"
       WEBPAY_PUBLIC_URL: "${WEBPAY_PUBLIC_URL:?Dirección del gateway que alcanza el navegador}"

@@ -76,6 +76,7 @@ CLUBS = [
     ("/{club_id}/deportes/{deporte_id}", ["PUT", "DELETE"], False, "Agregar o quitar un deporte del club", None, None),
     ("/{club_id}/announcements", ["POST"], False, "Publicar una convocatoria (club dueño)", None, CONVOCATORIA_EXAMPLE),
     ("/{club_id}/announcements/{convocatoria_id}/close", ["POST"], False, "Cerrar una convocatoria (club dueño)", None, None),
+    ("/{club_id}/announcements/{convocatoria_id}/chat", ["PATCH"], False, "Activar o desactivar el chat de postulantes (club dueño)", None, {"chat_postulantes_habilitado": True}),
     ("/{club_id}/notices", ["GET"], False, "Comunicados que publicó el club (dueño)",
      {"audiencia": {"type": "string", "enum": ["TODOS", "POSTULANTES", "MIEMBROS"]},
       "prioridad": {"type": "string", "enum": ["NORMAL", "URGENTE"]}, **PAGE}, None),
@@ -116,6 +117,7 @@ CLUBS = [
 ]
 
 PAYMENTS = [
+    ("/webpay/checkout", ["GET"], True, "Formulario POST hacia Webpay (enlace firmado)", None, None),
     ("/plans", ["GET"], True, "Planes disponibles", {"tipo": {"type": "string", "enum": ["USUARIO", "CLUB"]}}, None),
     ("/webpay/initiate", ["POST"], False, "Iniciar el pago de un plan con Webpay Plus", None, {"plan_id": 1}),
     ("/webpay/commit", ["POST"], False, "Confirmar el pago al volver de Webpay", None, {"token_ws": "a" * 64}),

@@ -22,7 +22,7 @@ BODY_EXAMPLES = {
     "/{user_id}/preferences": {"deportes": [{"deporte_codigo": "tenis", "nivel": 3}], "disponibilidad": [{"dia_semana": "lunes", "hora_inicio": "18:00", "hora_fin": "20:00"}]},
     "/{user_id}/consents": {"type": "privacy", "purpose": "Uso de preferencias", "document_version": "v1", "method": "app"},
     "/athletes/cards": ["10000000-0000-4000-8000-000000000002"],
-    "/reports": {"tipo": "usuario", "objetivo_id": "10000000-0000-4000-8000-000000000002", "objetivo_nombre": "Ana P.", "motivo": "Spam o publicidad", "detalle": ""},
+    "/reports": {"tipo": "usuario", "objetivo_id": "10000000-0000-4000-8000-000000000002", "objetivo_nombre": "Ana P.", "motivo": "Spam o publicidad", "detalle": "Me escribió de madrugada"},
     "/admin/reports/{report_id}": {"estado": "revisado"},
     "/block": {"blockedUserId": "10000000-0000-4000-8000-000000000002"},
     "/location": {"latitud": -33.45694, "longitud": -70.64827, "precision_m": 15},
@@ -50,6 +50,7 @@ async def forward_request(request: Request, service: UsersService) -> Response:
     # length; do not relay content-encoding or hop-by-hop headers.
     response_headers = {name: upstream.headers[name] for name in (
         "content-type", "www-authenticate", "allow", "cache-control", "content-disposition",
+        "content-security-policy", "referrer-policy",
     ) if name in upstream.headers}
     response_headers["cache-control"] = "no-store"
     if upstream.status_code in (301, 302, 303, 307, 308) and "location" in upstream.headers:

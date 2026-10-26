@@ -29,7 +29,7 @@ def create_app() -> FastAPI:
             for name, url in (("users", settings.users_service_url), ("matching", settings.matching_service_url), ("activities", settings.activities_service_url), ("clubs", settings.clubs_service_url)):
                 if url is not None:
                     client = await stack.enter_async_context(httpx.AsyncClient(
-                        base_url=str(url), timeout=settings.users_timeout_seconds,
+                        base_url=str(url), timeout=max(settings.users_timeout_seconds, 35) if name == "clubs" else settings.users_timeout_seconds,
                         follow_redirects=False, trust_env=False,
                     ))
                     setattr(application.state, f"{name}_client", client)
