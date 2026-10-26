@@ -206,6 +206,21 @@ def test_the_webpay_return_keeps_its_redirect_to_the_app(monkeypatch):
     assert all("authorization" not in call.headers for call in upstream.calls)  # the browser has no session here
 
 
+def test_signed_checkout_is_public_and_keeps_browser_security_headers(monkeypatch):
+    upstream = Upstream(httpx.Response(200, text='<form method="POST"></form>', headers={
+        "content-type": "text/html", "content-security-policy": "script-src 'nonce-test'",
+        "referrer-policy": "no-referrer",
+    }))
+    with gateway(monkeypatch, "clubs", upstream) as client:
+        response = client.get('/api/v1/payments/webpay/checkout?ticket=signed-ticket')
+    assert response.status_code == 200
+    assert response.headers['content-security-policy'] == "script-src 'nonce-test'"
+    assert response.headers['referrer-policy'] == 'no-referrer'
+    assert upstream.calls[0].url.query == b'ticket=signed-ticket'
+    assert 'authorization' not in upstream.calls[0].headers
+    assert upstream.calls[0].extensions['timeout']['read'] >= 35
+
+
 def test_only_redirects_carry_a_location_to_the_client(monkeypatch):
     upstream = Upstream(httpx.Response(200, json={"ok": True}, headers={"location": "https://evil.example"}))
     with gateway(monkeypatch, "clubs", upstream) as client:

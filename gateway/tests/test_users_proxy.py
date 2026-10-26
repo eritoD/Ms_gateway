@@ -208,3 +208,31 @@ def test_blocks_and_reports_require_a_token_and_reach_users(monkeypatch, method,
     assert calls[0].url.path == path.split("?")[0]
     assert calls[0].url.query.decode() == (path.split("?") + [""])[1]
     assert calls[0].headers["authorization"].startswith("Bearer ")
+
+
+def club_token_headers():
+    now = datetime.now(timezone.utc)
+    token = jwt.encode({
+        "sub": USER_ID, "iss": "sportmatch-auth", "aud": "sportmatch-mobile",
+        "iat": now, "exp": now + timedelta(minutes=10), "token_type": "access",
+        "roles": ["club_admin"],
+    }, SECRET, algorithm="HS256")
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_a_club_can_report_and_login_answer_reaches_the_app_untouched(monkeypatch):
+    # El gateway no filtra por rol ni por frontend: solo reenvía lo que responde Ms_Users.
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        if request.url.path.endswith("/auth/login"):
+            return httpx.Response(200, json={"frontend": "web", "web_url": "https://clubes.example.com"})
+        return httpx.Response(201, json={"reportante_rol": "club_admin"})
+    with proxy_client(monkeypatch, upstream) as client:
+        report = client.post("/api/v1/users/reports",
+                             headers={**club_token_headers(), "Content-Type": "application/json"},
+                             content=b'{"tipo":"usuario"}')
+        login = client.post("/api/v1/users/auth/login", json={"email": "club@example.com", "password": "x"})
+    assert report.status_code == 201 and report.json()["reportante_rol"] == "club_admin"
+    assert calls[0].headers["authorization"].startswith("Bearer ")
+    assert login.status_code == 200 and login.json() == {"frontend": "web", "web_url": "https://clubes.example.com"}
