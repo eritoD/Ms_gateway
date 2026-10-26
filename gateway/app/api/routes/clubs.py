@@ -125,6 +125,7 @@ PAYMENTS = [
     # Simulated Webpay for development: the service answers 404 to these unless WEBPAY_MOCK_MODE=true.
     ("/webpay/mock", ["GET", "POST"], True, "Página de pago simulada (solo con WEBPAY_MOCK_MODE)", None, None),
     ("/webpay/mock/decision", ["GET"], True, "Decisión en la página simulada (solo con WEBPAY_MOCK_MODE)", None, None),
+    ("/webpay/mock/pagar", ["POST"], True, "Pago de prueba con tarjeta (solo con WEBPAY_MOCK_MODE)", None, None),
 ]
 
 
