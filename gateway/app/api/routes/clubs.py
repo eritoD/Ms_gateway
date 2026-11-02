@@ -22,9 +22,9 @@ PAGE = {
     "page": {"type": "integer", "minimum": 1, "default": 1},
     "page_size": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20},
 }
-INTEGER_PATH_PARAMETERS = {"deporte_id"}
+INTEGER_PATH_PARAMETERS = {"deporte_id", "plan_id"}
 PATH_PARAMETERS = ("club_id", "convocatoria_id", "postulacion_id", "deporte_id", "usuario_id", "asignacion_id", "hilo_id",
-                   "canal_id")
+                   "canal_id", "plan_id")
 MESSAGES = {
     "after_id": {"type": "integer", "minimum": 0},
     "before_id": {"type": "integer", "minimum": 1},
@@ -33,6 +33,8 @@ MESSAGES = {
 CANAL_EXAMPLE = {"nombre": "Sub-17 avisos", "miembros_escriben": False}
 MESSAGE_EXAMPLE = {"texto": "¿La prueba del sábado es abierta?", "client_message_id": "30000000-0000-4000-8000-000000000001"}
 
+PLAN_EXAMPLE = {"nombre": "Pro Mensual", "tipo": "USUARIO", "categoria": "PLAN", "precio": 4990, "duracion_dias": 30,
+                "beneficios": ["Actividades sin límite", "Filtros avanzados"], "descripcion": "Para quien entrena seguido"}
 CLUB_EXAMPLE = {"nombre": "Club Deportivo Ñuñoa", "descripcion": "Fútbol y tenis para todas las edades.",
                 "comuna": "Ñuñoa", "deporte_ids": [1, 2]}
 CONVOCATORIA_EXAMPLE = {
@@ -122,6 +124,18 @@ PAYMENTS = [
     ("/webpay/initiate", ["POST"], False, "Iniciar el pago de un plan con Webpay Plus", None, {"plan_id": 1}),
     ("/webpay/commit", ["POST"], False, "Confirmar el pago al volver de Webpay", None, {"token_ws": "a" * 64}),
     ("/subscription/me", ["GET"], False, "Mi suscripción", None, None),
+    # HU-56: gestión de planes y convenios. El rol admin lo exige ms-club (el gateway solo valida el JWT).
+    ("/admin/plans", ["GET"], False, "Planes y convenios con sus suscripciones vigentes (administrador)",
+     {"estado": {"type": "string", "enum": ["activo", "inactivo", "todos"]},
+      "tipo": {"type": "string", "enum": ["USUARIO", "CLUB"]},
+      "categoria": {"type": "string", "enum": ["PLAN", "CONVENIO"]},
+      "pagina": {"type": "integer", "minimum": 1, "default": 1},
+      "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20}}, None),
+    ("/admin/plans", ["POST"], False, "Crear un plan o convenio (administrador)", None, PLAN_EXAMPLE),
+    ("/admin/plans/{plan_id}", ["PATCH"], False, "Editar un plan o convenio activo (administrador)", None,
+     {"precio": 5990, "beneficios": ["Actividades sin límite"], "motivo": "Ajuste de temporada"}),
+    ("/admin/plans/{plan_id}/deactivate", ["POST"], False, "Desactivar un plan o convenio (administrador)", None,
+     {"motivo": "Se retira la oferta"}),
     # The browser comes back from Webpay here (no token): the service redirects it to the app.
     ("/webpay/return", ["GET", "POST"], True, "Retorno de Webpay Plus (redirige a la app)", None, None),
     # Simulated Webpay for development: the service answers 404 to these unless WEBPAY_MOCK_MODE=true.
