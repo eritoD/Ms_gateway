@@ -136,6 +136,12 @@ PAYMENTS = [
      {"precio": 5990, "beneficios": ["Actividades sin límite"], "motivo": "Ajuste de temporada"}),
     ("/admin/plans/{plan_id}/deactivate", ["POST"], False, "Desactivar un plan o convenio (administrador)", None,
      {"motivo": "Se retira la oferta"}),
+    ("/admin/plans/{plan_id}/reactivate", ["POST"], False, "Reactivar un plan o convenio desactivado (administrador)",
+     None, {"motivo": "Vuelve la oferta"}),
+    ("/admin/plans/{plan_id}/subscriptions", ["GET"], False, "Suscripciones de un plan o convenio (administrador)",
+     {"estado": {"type": "string", "enum": ["vigente", "vencida", "todas"]},
+      "pagina": {"type": "integer", "minimum": 1, "default": 1},
+      "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}, None),
     # The browser comes back from Webpay here (no token): the service redirects it to the app.
     ("/webpay/return", ["GET", "POST"], True, "Retorno de Webpay Plus (redirige a la app)", None, None),
     # Simulated Webpay for development: the service answers 404 to these unless WEBPAY_MOCK_MODE=true.

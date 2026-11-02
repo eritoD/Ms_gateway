@@ -253,7 +253,9 @@ def test_a_sanction_applied_while_ms_users_is_down_is_never_answered_with_200(gu
 def test_the_internal_endpoints_are_not_reachable_through_the_gateway(guarded):
     client, upstream = guarded
     for path in (f"/internal/v1/accounts/{USER}/status", f"/api/v1/users/internal/v1/accounts/{USER}/status",
-                 "/internal/v1/audit/events"):
+                 "/internal/v1/audit/events", "/internal/v1/accounts/names",
+                 f"/internal/v1/activities/{USER}/author", f"/api/v1/activities/internal/v1/activities/{USER}/author",
+                 f"/internal/v1/messages/{USER}/7/author", f"/api/v1/matching/internal/v1/messages/{USER}/7/author"):
         for method in ("get", "post"):
             response = getattr(client, method)(path, headers={**bearer(), "X-Internal-Service-Token": SERVICE_TOKEN})
             assert response.status_code in (404, 405), (method, path)
