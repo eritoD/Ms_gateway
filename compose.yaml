@@ -70,6 +70,8 @@ services:
       USERS_SERVICE_URL: "http://ms_users:8001"
       # Para validar matches al calificar, con el token del propio deportista.
       MATCHING_SERVICE_URL: "http://ms_matching:8002"
+      # HU-47: Ms_Users pregunta aquí quién publicó una actividad reportada (/internal/v1/activities/{id}/author).
+      INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
     depends_on:
       ms_users:
         condition: service_healthy
@@ -89,6 +91,8 @@ services:
       JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
       USERS_SERVICE_URL: "http://ms_users:8001"
       CHAT_ATTACHMENT_HOSTS: "${CHAT_ATTACHMENT_HOSTS:-}"
+      # HU-47: Ms_Users pregunta aquí quién escribió un mensaje reportado (/internal/v1/messages/{chat}/{id}/author).
+      INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
     depends_on:
       ms_users:
         condition: service_healthy
@@ -150,6 +154,9 @@ services:
       JWT_ACCESS_TOKEN_MINUTES: "${JWT_ACCESS_TOKEN_MINUTES:-30}"
       # HU-48: secreto entre servicios para /internal de Ms_Users (mínimo 32 bytes). Sin él, ese endpoint responde 503.
       INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
+      # HU-47: para averiguar quién hizo una actividad o un mensaje reportado (rutas /internal de esos servicios, nunca en el gateway).
+      ACTIVITIES_SERVICE_URL: "http://ms_activities:8003"
+      MATCHING_SERVICE_URL: "http://ms_matching:8002"
       # Recuperación de contraseña por correo (cualquier proveedor SMTP).
       EMAIL_BACKEND: "${EMAIL_BACKEND:-smtp}"
       SMTP_HOST: "${SMTP_HOST:-}"

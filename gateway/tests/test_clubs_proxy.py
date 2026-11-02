@@ -109,6 +109,8 @@ PRIVATE = [
     ("POST", "/api/v1/payments/admin/plans"),
     ("PATCH", "/api/v1/payments/admin/plans/7"),
     ("POST", "/api/v1/payments/admin/plans/7/deactivate"),
+    ("POST", "/api/v1/payments/admin/plans/7/reactivate"),
+    ("GET", "/api/v1/payments/admin/plans/7/subscriptions?estado=vigente&pagina=2&limit=100"),
 ]
 
 
@@ -200,10 +202,14 @@ def test_plan_management_routes_are_declared_and_have_no_delete(monkeypatch):
         for method in ("DELETE", "PUT"):
             assert client.request(method, "/api/v1/payments/admin/plans/7", headers=token_headers()).status_code in (404, 405)
         assert client.request("DELETE", "/api/v1/payments/admin/plans", headers=token_headers()).status_code in (404, 405)
+        for method, path in (("GET", "/reactivate"), ("PUT", "/reactivate"), ("POST", "/subscriptions"), ("DELETE", "/subscriptions")):
+            assert client.request(method, f"/api/v1/payments/admin/plans/7{path}", headers=token_headers()).status_code in (404, 405)
         assert upstream.calls == []
         paths = client.get("/openapi.json").json()["paths"]
     parameters = {p["name"]: p["schema"] for p in paths["/api/v1/payments/admin/plans/{plan_id}"]["patch"]["parameters"]}
     assert parameters["plan_id"] == {"type": "integer"}
+    assert "security" in paths["/api/v1/payments/admin/plans/{plan_id}/reactivate"]["post"]
+    assert "security" in paths["/api/v1/payments/admin/plans/{plan_id}/subscriptions"]["get"]
     assert "security" in paths["/api/v1/payments/admin/plans"]["post"]
     assert "security" not in paths["/api/v1/payments/plans"]["get"]            # the public catalog stays public
 
