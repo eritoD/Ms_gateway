@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     clubs_database_url: str | None = None
     push_enabled: bool = False
     expo_access_token: SecretStr | None = None
+    # HU-45: secret shared with Ms_Users to ask whether an account is suspended. Unset with Ms_Users configured = fail closed (503).
+    internal_service_token: SecretStr | None = None
+    account_status_ttl_seconds: float = Field(default=15, ge=1, le=300)
+    account_status_stale_seconds: float = Field(default=1800, ge=0, le=86400)
 
     @field_validator("users_service_url", "matching_service_url", "activities_service_url", "clubs_service_url", mode="before")
     @classmethod
@@ -61,7 +65,7 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = ""
     enable_hsts: bool = False
 
-    @field_validator("jwt_secret", "jwt_public_key", mode="before")
+    @field_validator("jwt_secret", "jwt_public_key", "internal_service_token", mode="before")
     @classmethod
     def empty_security_values_are_unset(cls, value: object) -> object:
         if isinstance(value, str) and not value.strip():

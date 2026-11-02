@@ -1,3 +1,4 @@
+import os
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -25,7 +26,10 @@ def token_headers():
 
 
 @contextmanager
-def proxy_client(monkeypatch, handler):
+def proxy_client(monkeypatch, handler, *, account_check=None):
+    """`account_check=None`: the suspended-account check is switched off unless the test sets INTERNAL_SERVICE_TOKEN
+    (these tests are about proxying, not HU-45). `account_check=True` keeps the gateway exactly as it starts
+    (including its fail-closed guard when the secret is missing)."""
     monkeypatch.setenv("USERS_SERVICE_URL", "http://ms_users:8001")
     monkeypatch.setenv("JWT_SECRET", SECRET)
     get_settings.cache_clear()
@@ -34,6 +38,8 @@ def proxy_client(monkeypatch, handler):
         with TestClient(application) as client:
             # Keep the real lifespan/connection cleanup, replace only transport.
             application.state.users_client._transport = httpx.MockTransport(handler)
+            if not account_check and not os.environ.get("INTERNAL_SERVICE_TOKEN", "").strip():
+                application.state.account_guard = None
             yield client
     finally:
         get_settings.cache_clear()
@@ -236,3 +242,55 @@ def test_a_club_can_report_and_login_answer_reaches_the_app_untouched(monkeypatc
     assert report.status_code == 201 and report.json()["reportante_rol"] == "club_admin"
     assert calls[0].headers["authorization"].startswith("Bearer ")
     assert login.status_code == 200 and login.json() == {"frontend": "web", "web_url": "https://clubes.example.com"}
+
+
+def test_audit_history_is_forwarded_with_its_query_and_requires_a_token(monkeypatch):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(200, json={"items": [], "pagina": 1, "por_pagina": 25, "total": 0, "total_paginas": 0})
+    with proxy_client(monkeypatch, upstream) as client:
+        path = "/api/v1/users/admin/audit-events?accion=PLAN_CREATED&por_pagina=10"
+        assert client.get(path).status_code == 401
+        assert calls == []
+        headers = token_headers()
+        assert client.get(path, headers=headers).status_code == 200
+        assert calls[0].url.path == "/api/v1/users/admin/audit-events"
+        assert calls[0].url.query == b"accion=PLAN_CREATED&por_pagina=10"
+        assert calls[0].headers["authorization"] == headers["Authorization"]
+
+
+@pytest.mark.parametrize("method", ["POST", "PUT", "PATCH", "DELETE"])
+def test_audit_history_has_no_write_routes_and_internal_routes_are_not_exposed(monkeypatch, method):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(200, json={})
+    with proxy_client(monkeypatch, upstream) as client:
+        headers = token_headers()
+        assert client.request(method, "/api/v1/users/admin/audit-events", headers=headers).status_code in (404, 405)
+        assert client.request(method, f"/api/v1/users/admin/audit-events/{USER_ID}", headers=headers).status_code in (404, 405)
+        assert client.request(method, "/internal/v1/audit/events", headers=headers).status_code == 404
+        assert client.request(method, "/api/v1/users/internal/v1/audit/events", headers=headers).status_code in (404, 405)
+    assert calls == []
+
+
+def test_report_moderation_routes_forward_query_body_and_upstream_errors(monkeypatch):
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(409 if request.method == "PATCH" else 200, json=[] if request.method == "GET" else {"detail": "x"})
+    report_id = str(uuid4())
+    with proxy_client(monkeypatch, upstream) as client:
+        listing = "/api/v1/users/admin/reports?estado=escalado&limit=20&pagina=2"
+        patch_path = f"/api/v1/users/admin/reports/{report_id}"
+        assert client.get(listing).status_code == 401
+        assert client.patch(patch_path, json={"estado": "escalado"}).status_code == 401
+        assert calls == []
+        headers = token_headers()
+        assert client.get(listing, headers=headers).status_code == 200
+        assert calls[0].url.query == b"estado=escalado&limit=20&pagina=2"
+        body = b'{"estado":"escalado","motivo":"Reincidente"}'
+        response = client.patch(patch_path, content=body, headers={**headers, "Content-Type": "application/json"})
+        assert response.status_code == 409 and calls[1].content == body      # Ms_Users decides; the gateway relays.
+        assert client.delete(patch_path, headers=headers).status_code in (404, 405)

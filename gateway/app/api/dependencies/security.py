@@ -2,11 +2,12 @@
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.exceptions import InvalidTokenError
 
 from app.api.dependencies.services import get_token_service
+from app.services.account_guard import AccountStatusUnavailable
 from app.services.token_service import (
     Principal,
     SecurityConfigurationError,
@@ -29,6 +30,7 @@ def _unauthorized() -> HTTPException:
 
 
 async def get_current_principal(
+    request: Request,
     credentials: Annotated[
         HTTPAuthorizationCredentials | None,
         Depends(bearer_scheme),
@@ -39,7 +41,7 @@ async def get_current_principal(
         raise _unauthorized()
 
     try:
-        return token_service.decode_access_token(credentials.credentials)
+        principal = token_service.decode_access_token(credentials.credentials)
     except SecurityConfigurationError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -47,6 +49,18 @@ async def get_current_principal(
         ) from exc
     except InvalidTokenError as exc:
         raise _unauthorized() from exc
+
+    # HU-45: a suspended account is refused on every request, even with a token that is still valid.
+    guard = getattr(request.app.state, "account_guard", None)
+    if guard is not None and "admin" not in principal.roles:
+        try:
+            await guard.check(principal.subject)  # AccountSuspendedError -> 403 account_suspended
+        except AccountStatusUnavailable:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo verificar el estado de la cuenta. Inténtalo de nuevo.",
+            ) from None
+    return principal
 
 
 def require_any_role(*required_roles: str):

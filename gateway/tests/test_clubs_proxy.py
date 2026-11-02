@@ -30,6 +30,7 @@ def gateway(monkeypatch, service, handler):
         with TestClient(application, follow_redirects=False) as client:
             if handler is not None:
                 getattr(application.state, f"{service}_client")._transport = httpx.MockTransport(handler)
+            application.state.account_guard = None  # these tests are about proxying; HU-45 has its own tests
             yield client
     finally:
         get_settings.cache_clear()
@@ -103,6 +104,11 @@ PRIVATE = [
     ("POST", "/api/v1/payments/webpay/initiate"),
     ("POST", "/api/v1/payments/webpay/commit"),
     ("GET", "/api/v1/payments/subscription/me"),
+    # HU-56: planes y convenios. El gateway solo exige sesión; el rol admin lo exige ms-club.
+    ("GET", "/api/v1/payments/admin/plans?estado=activo&pagina=2&limit=10"),
+    ("POST", "/api/v1/payments/admin/plans"),
+    ("PATCH", "/api/v1/payments/admin/plans/7"),
+    ("POST", "/api/v1/payments/admin/plans/7/deactivate"),
 ]
 
 
@@ -185,6 +191,21 @@ def test_without_a_configured_ms_club_the_routes_answer_503(monkeypatch):
             response = client.get(path)
             assert response.status_code == 503 and response.json() == {"detail": "Ms_Club no está configurado"}
         assert client.get("/api/v1/clubs/me", headers=token_headers()).status_code == 503
+
+
+def test_plan_management_routes_are_declared_and_have_no_delete(monkeypatch):
+    """HU-56: a plan is deactivated, never deleted; the id in the path is an integer."""
+    upstream = Upstream()
+    with gateway(monkeypatch, "clubs", upstream) as client:
+        for method in ("DELETE", "PUT"):
+            assert client.request(method, "/api/v1/payments/admin/plans/7", headers=token_headers()).status_code in (404, 405)
+        assert client.request("DELETE", "/api/v1/payments/admin/plans", headers=token_headers()).status_code in (404, 405)
+        assert upstream.calls == []
+        paths = client.get("/openapi.json").json()["paths"]
+    parameters = {p["name"]: p["schema"] for p in paths["/api/v1/payments/admin/plans/{plan_id}"]["patch"]["parameters"]}
+    assert parameters["plan_id"] == {"type": "integer"}
+    assert "security" in paths["/api/v1/payments/admin/plans"]["post"]
+    assert "security" not in paths["/api/v1/payments/plans"]["get"]            # the public catalog stays public
 
 
 # -- the browser comes back from Webpay ------------------------------------------------------------------------

@@ -23,6 +23,8 @@ services:
       CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-}"
       ENABLE_HSTS: "${ENABLE_HSTS:-false}"
       USERS_SERVICE_URL: "http://ms_users:8001"
+      # HU-45: mismo secreto que Ms_Users; con él el gateway consulta si la cuenta está suspendida (sin él, no lo verifica).
+      INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
       MATCHING_SERVICE_URL: "http://ms_matching:8002"
       ACTIVITIES_SERVICE_URL: "http://ms_activities:8003"
       # Opcional: sin CLUBS_SERVICE_URL las rutas de clubes y pagos responden 503.
@@ -110,6 +112,9 @@ services:
       JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
       JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
       USERS_SERVICE_URL: "http://ms_users:8001"
+      # HU-56: secreto entre servicios para auditar los cambios de planes en Ms_Users (el mismo valor que Ms_Users).
+      # Sin él (o con menos de 32 bytes) los cambios de planes responden 503: nunca se guardan sin su auditoría.
+      INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
       WEBPAY_MOCK_MODE: "${WEBPAY_MOCK_MODE:-false}"
       WEBPAY_ENVIRONMENT: "${WEBPAY_ENVIRONMENT:-INTEGRATION}"
       WEBPAY_WEB_RETURN_URL: "${WEBPAY_WEB_RETURN_URL:-http://localhost:3000/pago/resultado}"
@@ -143,6 +148,8 @@ services:
       JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
       JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
       JWT_ACCESS_TOKEN_MINUTES: "${JWT_ACCESS_TOKEN_MINUTES:-30}"
+      # HU-48: secreto entre servicios para /internal de Ms_Users (mínimo 32 bytes). Sin él, ese endpoint responde 503.
+      INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
       # Recuperación de contraseña por correo (cualquier proveedor SMTP).
       EMAIL_BACKEND: "${EMAIL_BACKEND:-smtp}"
       SMTP_HOST: "${SMTP_HOST:-}"

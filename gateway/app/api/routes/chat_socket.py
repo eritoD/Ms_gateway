@@ -23,7 +23,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from websockets.exceptions import ConnectionClosed, InvalidURI, WebSocketException
 
 from app.core.config import get_settings
-from app.services.token_service import SecurityConfigurationError, TokenService
+from app.services.account_guard import AccountGuard, AccountStatusUnavailable, AccountSuspendedError
+from app.services.token_service import Principal, SecurityConfigurationError, TokenService
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -32,6 +33,7 @@ AUTH_TIMEOUT_SECONDS = 5
 CONNECT_TIMEOUT_SECONDS = 5
 MAX_FRAME_CHARACTERS = 4096
 UNAUTHORIZED, UNAVAILABLE, TOO_BIG, NOT_TEXT = 4401, 1013, 1009, 1003
+SUSPENDED = 4423  # HU-45: the account is suspended (checked when connecting and again every few seconds)
 # Codes a server may put on the wire; 1005/1006 mean "no code" and cannot be sent.
 _RESERVED = {1005, 1006, 1015}
 
@@ -49,17 +51,28 @@ async def _close(websocket: WebSocket, code: int) -> None:
         pass
 
 
-async def _first_frame(websocket: WebSocket, settings) -> str | None:
-    """The auth frame, exactly as received, if it carries a valid access token."""
+async def _first_frame(websocket: WebSocket, settings) -> tuple[str, Principal] | None:
+    """The auth frame, exactly as received, and who it authenticates, if it carries a valid access token."""
     try:
         text = await asyncio.wait_for(websocket.receive_text(), AUTH_TIMEOUT_SECONDS)
         frame = json.loads(text) if len(text) <= MAX_FRAME_CHARACTERS else None
         if not isinstance(frame, dict) or frame.get("type") != "auth" or not isinstance(frame.get("token"), str):
             return None
-        TokenService(settings).decode_access_token(frame["token"])
-        return text
+        return text, TokenService(settings).decode_access_token(frame["token"])
     except (asyncio.TimeoutError, WebSocketDisconnect, RuntimeError, ValueError, jwt.PyJWTError):
         return None
+
+
+async def _watch_account(guard: AccountGuard, subject: str) -> int:
+    """Ends (returning SUSPENDED) when the account gets suspended while the socket is open."""
+    while True:
+        await asyncio.sleep(max(1.0, guard.ttl))
+        try:
+            await guard.check(subject)
+        except AccountSuspendedError:
+            return SUSPENDED
+        except AccountStatusUnavailable:
+            log.warning("account check unavailable for an open chat socket; keeping it open")
 
 
 async def _to_upstream(websocket: WebSocket, upstream) -> int | None:
@@ -106,6 +119,17 @@ async def chat_socket(websocket: WebSocket) -> None:
     if first is None:
         await _close(websocket, UNAUTHORIZED)
         return
+    first, principal = first
+    guard = getattr(websocket.app.state, "account_guard", None)
+    if guard is not None and "admin" not in principal.roles:
+        try:
+            await guard.check(principal.subject)
+        except AccountSuspendedError:
+            await _close(websocket, SUSPENDED)
+            return
+        except AccountStatusUnavailable:
+            await _close(websocket, UNAVAILABLE)
+            return
 
     try:
         upstream = await websockets.connect(
@@ -122,10 +146,15 @@ async def chat_socket(websocket: WebSocket) -> None:
     try:
         await upstream.send(first)
         relays = [asyncio.create_task(_to_upstream(websocket, upstream)), asyncio.create_task(_to_client(websocket, upstream))]
-        done, pending = await asyncio.wait(relays, return_when=asyncio.FIRST_COMPLETED)
+        watcher = None
+        if guard is not None and "admin" not in principal.roles:
+            watcher = asyncio.create_task(_watch_account(guard, principal.subject))
+        done, pending = await asyncio.wait(relays + ([watcher] if watcher else []), return_when=asyncio.FIRST_COMPLETED)
         for task in pending:
             task.cancel()
-        if relays[0] in done and not relays[0].cancelled() and relays[0].exception() is None:
+        if watcher is not None and watcher in done and not watcher.cancelled() and watcher.exception() is None:
+            close_code = watcher.result()  # SUSPENDED: the sanction arrived while the socket was open
+        elif relays[0] in done and not relays[0].cancelled() and relays[0].exception() is None:
             close_code = relays[0].result()  # None: the client left; otherwise our own reason (1009, 1003)
         else:
             code = upstream.close_code
