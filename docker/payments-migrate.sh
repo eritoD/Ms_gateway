@@ -17,6 +17,11 @@ for file in /payments-db/migrations/*.sql; do
 done
 
 psql -v ON_ERROR_STOP=1 -q -d sportmatch_payments <<'SQL'
+-- El inicializador usa postgres; el servicio también debe poder repetir sus
+-- migraciones con su rol propio mediante python -m app.database.migrate.
+SELECT format('ALTER TABLE public.%I OWNER TO sportmatch_payments', tablename)
+FROM pg_tables WHERE schemaname = 'public'
+AND tablename IN ('plan_suscripcion', 'transaccion_pago', 'suscripcion', 'suscripcion_periodo') \gexec
 GRANT CONNECT ON DATABASE sportmatch_payments TO sportmatch_payments;
 GRANT USAGE ON SCHEMA public TO sportmatch_payments;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO sportmatch_payments;

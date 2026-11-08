@@ -17,6 +17,11 @@ PAYMENTS = [
     ("/webpay/initiate", ["POST"], False, "Iniciar el pago de un plan con Webpay Plus", None, {"plan_id": 1}),
     ("/webpay/commit", ["POST"], False, "Confirmar el pago al volver de Webpay", None, {"token_ws": "a" * 64}),
     ("/subscription/me", ["GET"], False, "Mi suscripción", None, None),
+    ("/history/me", ["GET"], False, "Mi historial de pagos",
+     {"page": {"type": "integer", "minimum": 1}, "page_size": {"type": "integer", "minimum": 1, "maximum": 100}}, None),
+    ("/subscriptions/me/history", ["GET"], False, "Mis períodos de suscripción",
+     {"page": {"type": "integer", "minimum": 1}, "page_size": {"type": "integer", "minimum": 1, "maximum": 100}}, None),
+    ("/history/{transaccion_id}/receipt", ["GET"], False, "Descargar mi comprobante de pago", None, None),
     # HU-56: gestión de planes y convenios. El rol admin lo exige ms-pago.
     ("/admin/plans", ["GET"], False, "Planes y convenios con sus suscripciones vigentes (administrador)",
      {"estado": {"type": "string", "enum": ["activo", "inactivo", "todos"]},
@@ -45,4 +50,4 @@ PAYMENTS = [
 async def proxy(request: Request, service: Annotated[PaymentsService, Depends(get_payments_service)]):
     return await forward_request(request, service)
 
-register(router, PAYMENTS, "payments", proxy, ("plan_id",), {"plan_id"})
+register(router, PAYMENTS, "payments", proxy, ("plan_id", "transaccion_id"), {"plan_id"})
