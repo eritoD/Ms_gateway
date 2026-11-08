@@ -1,5 +1,25 @@
 # SportMatch Backend
 
+## Desarrollo en este workspace de Windows
+
+Desde esta carpeta, con Docker Desktop iniciado:
+
+```powershell
+docker compose -f compose.yaml -f compose.windows.yaml up --build -d
+docker compose -f compose.yaml -f compose.windows.yaml ps -a
+```
+
+El complemento Windows usa `../ms-machine`, `../Ms_activities` y `../Ms-club`,
+conserva PostgreSQL en el volumen existente y aplica las migraciones de Users y
+Clubes. `POSTGRES_PORT` permite elegir el puerto local de la base sin modificar
+otros proyectos (5433 por defecto; este equipo usa 5434 en `.env`). La API sigue
+en `http://localhost:8000`; el sitio web de este workspace usa el puerto 3001.
+Incluye ese origen en `CORS_ALLOWED_ORIGINS` y configura
+`WEBPAY_WEB_RETURN_URL=http://localhost:3001/pago/resultado`.
+
+Los nuevos módulos requieren `INTERNAL_SERVICE_TOKEN` compartido entre servicios
+(al menos 32 bytes). Los respaldos locales de bases están excluidos de Git.
+
 El gateway también integra [`../Ms_Matching`](../Ms_Matching/README.md), servicio
 independiente para solicitudes, matches y mensajes. Las rutas `/api/v1/matching`
 requieren JWT y se reenvían a `ms_matching:8002`. Configura `MATCHING_DATABASE_URL`
