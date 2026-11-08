@@ -30,6 +30,8 @@ services:
       # Opcional: sin CLUBS_SERVICE_URL las rutas de clubes y pagos responden 503.
       CLUBS_SERVICE_URL: "${CLUBS_SERVICE_URL:-}"
       USERS_TIMEOUT_SECONDS: "${USERS_TIMEOUT_SECONDS:-10}"
+      # HU-61: cuerpo máximo que el gateway reenvía al subir una foto de perfil (la foto de 5 MB más el envoltorio).
+      PHOTO_UPLOAD_MAX_BYTES: "${PHOTO_UPLOAD_MAX_BYTES:-6291456}"
       NOTIFICATIONS_DATABASE_URL: "${USERS_DATABASE_URL:?Configure USERS_DATABASE_URL en .env}"
       MATCHING_DATABASE_URL: "${MATCHING_DATABASE_URL:?Configure MATCHING_DATABASE_URL en .env}"
       ACTIVITIES_DATABASE_URL: "${ACTIVITIES_DATABASE_URL:?Configure ACTIVITIES_DATABASE_URL en .env}"
@@ -171,9 +173,20 @@ services:
       PASSWORD_RESET_RESEND_SECONDS: "${PASSWORD_RESET_RESEND_SECONDS:-60}"
       # Solo desarrollo y solo con EMAIL_BACKEND=console: cualquier código de 6 dígitos verifica el correo.
       EMAIL_VERIFICATION_ACCEPT_ANY_CODE: "${EMAIL_VERIFICATION_ACCEPT_ANY_CODE:-false}"
+      # HU-61: fotos de perfil. Se guardan en el volumen users_photos, que sobrevive a reconstruir el contenedor.
+      PHOTO_STORAGE_PATH: "/data/profile-photos"
+      PHOTO_MAX_BYTES: "${PHOTO_MAX_BYTES:-5242880}"
+      PHOTO_MAX_SIDE: "${PHOTO_MAX_SIDE:-1024}"
+      PHOTO_MAX_PIXELS: "${PHOTO_MAX_PIXELS:-40000000}"
+    volumes:
+      - users_photos:/data/profile-photos
     depends_on:
       users_migrate:
         condition: service_completed_successfully
     expose:
       - "8001"
     restart: unless-stopped
+
+volumes:
+  # HU-61: fotos de perfil de Ms_Users. NO usar `docker compose down -v` en producción: borra las fotos.
+  users_photos:

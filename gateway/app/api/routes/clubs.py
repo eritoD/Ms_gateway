@@ -77,6 +77,8 @@ CLUBS = [
      {"descripcion": "Nueva descripción", "deporte_ids": [1]}),
     ("/{club_id}/deportes/{deporte_id}", ["PUT", "DELETE"], False, "Agregar o quitar un deporte del club", None, None),
     ("/{club_id}/announcements", ["POST"], False, "Publicar una convocatoria (club dueño)", None, CONVOCATORIA_EXAMPLE),
+    ("/{club_id}/announcements/{convocatoria_id}", ["PATCH"], False, "Editar una convocatoria (club dueño; avisa a los postulantes si cambia fecha o lugar)", None,
+     {"direccion": "Av. Grecia 2999", "fecha_prueba": "2026-11-14T10:00:00-03:00", "cupos": 30}),
     ("/{club_id}/announcements/{convocatoria_id}/close", ["POST"], False, "Cerrar una convocatoria (club dueño)", None, None),
     ("/{club_id}/announcements/{convocatoria_id}/chat", ["PATCH"], False, "Activar o desactivar el chat de postulantes (club dueño)", None, {"chat_postulantes_habilitado": True}),
     ("/{club_id}/notices", ["GET"], False, "Comunicados que publicó el club (dueño)",

@@ -62,6 +62,7 @@ PRIVATE = [
     ("PUT", f"/api/v1/clubs/{ID}/deportes/2"),
     ("DELETE", f"/api/v1/clubs/{ID}/deportes/2"),
     ("POST", f"/api/v1/clubs/{ID}/announcements"),
+    ("PATCH", f"/api/v1/clubs/{ID}/announcements/{OTHER}"),                      # HU-68
     ("POST", f"/api/v1/clubs/{ID}/announcements/{OTHER}/close"),
     ("GET", "/api/v1/clubs/announcements/applications/me?estado=PENDIENTE"),
     ("PATCH", f"/api/v1/clubs/announcements/applications/{OTHER}"),

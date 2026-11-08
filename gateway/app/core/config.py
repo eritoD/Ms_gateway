@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     internal_service_token: SecretStr | None = None
     account_status_ttl_seconds: float = Field(default=15, ge=1, le=300)
     account_status_stale_seconds: float = Field(default=1800, ge=0, le=86400)
+    # HU-61: largest body the gateway relays to Ms_Users for a profile photo upload (the photo limit, 5 MB, plus the
+    # multipart envelope). Every other request keeps the 1 MiB limit. Ms_Users enforces the exact photo limit.
+    photo_upload_max_bytes: int = Field(default=6 * 1024 * 1024, ge=1024, le=64 * 1024 * 1024)
 
     @field_validator("users_service_url", "matching_service_url", "activities_service_url", "clubs_service_url", mode="before")
     @classmethod
