@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from app.api.dependencies.security import get_current_principal
 from app.api.dependencies.services import get_users_service
+from app.core.config import get_settings
 from app.services.users_service import UsersService
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
@@ -33,6 +34,10 @@ BODY_EXAMPLES = {
 }
 
 
+# HU-61: the photo upload is the only request allowed to exceed 1 MiB; the photo itself is served with its own cache rules.
+_PHOTO_UPLOAD = re.compile(r"/api/v1/users/[^/]+/profile/photo")
+_PHOTO_FILE = re.compile(r"/api/v1/users/photos/[^/]+")
+_DEFAULT_BODY_LIMIT = 1_048_576
 _SANCTION_CHANGE = re.compile(r"/api/v1/users/admin/sanctions(/[^/]+/lift)?")
 
 
@@ -41,10 +46,16 @@ async def proxy_users(request: Request, service: Annotated[UsersService, Depends
 
 
 async def forward_request(request: Request, service: UsersService) -> Response:
+    limit = _DEFAULT_BODY_LIMIT
+    if request.method == "PUT" and _PHOTO_UPLOAD.fullmatch(request.url.path):
+        limit = get_settings().photo_upload_max_bytes
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > limit:
+        raise HTTPException(status_code=413, detail="Solicitud demasiado grande")
     body = bytearray()
     async for chunk in request.stream():
         body.extend(chunk)
-        if len(body) > 1_048_576:
+        if len(body) > limit:
             raise HTTPException(status_code=413, detail="Solicitud demasiado grande")
     headers = {name: request.headers[name] for name in ("authorization", "content-type", "accept") if name in request.headers}
     headers["x-request-id"] = request.state.request_id
@@ -58,7 +69,11 @@ async def forward_request(request: Request, service: UsersService) -> Response:
         "content-type", "www-authenticate", "allow", "cache-control", "content-disposition",
         "content-security-policy", "referrer-policy",
     ) if name in upstream.headers}
-    response_headers["cache-control"] = "no-store"
+    if request.method == "GET" and upstream.status_code == 200 and _PHOTO_FILE.fullmatch(request.url.path):
+        response_headers["cache-control"] = upstream.headers.get("cache-control", "no-store")
+        response_headers["x-content-type-options"] = "nosniff"
+    else:
+        response_headers["cache-control"] = "no-store"
     if upstream.status_code < 400 and request.method == "POST" and _SANCTION_CHANGE.fullmatch(request.url.path):
         guard = getattr(request.app.state, "account_guard", None)
         if guard is not None:
@@ -69,6 +84,10 @@ async def forward_request(request: Request, service: UsersService) -> Response:
 
 
 for path, methods, public in [
+    # HU-61: foto de perfil. La imagen se pide sin sesión (la usan <img> y Image, que no envían el token): su clave
+    # es aleatoria y solo la reciben quienes pueden ver el perfil. Subirla y quitarla exige sesión y cuenta propia.
+    ("/photos/{photo_key}", ["GET"], True),
+    ("/{user_id}/profile/photo", ["PUT", "DELETE"], False),
     ("/auth/register", ["POST"], True),
     ("/auth/register-club", ["POST"], True),
     ("/auth/login", ["POST"], True),
@@ -115,6 +134,9 @@ for path, methods, public in [
                 for name in ("user_id", "consent_id", "report_id", "sanction_id", "blocked_user_id") if "{" + name + "}" in path
             ],
         }
+        if "{photo_key}" in path:
+            documentation["parameters"].append({"name": "photo_key", "in": "path", "required": True,
+                                                "schema": {"type": "string", "pattern": "^[0-9a-f]{32}[.](jpg|png)$"}})
         if path == "/suggestions":
             documentation.update({
                 "summary": "Listar otros deportistas registrados",

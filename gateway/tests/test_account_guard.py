@@ -334,3 +334,14 @@ def test_the_chat_socket_is_refused_when_the_account_cannot_be_checked(monkeypat
             ws.send_json(auth_frame(access_token(USER)))
             assert closed_with(ws) == 1013
     assert matching.connections == 0
+
+
+def test_a_suspended_club_cannot_edit_a_convocatoria(guarded):
+    """HU-68: the edit route is a private route like the rest, so the HU-45 block applies to it."""
+    client, upstream = guarded
+    upstream.accounts[USER] = SUSPENDED
+    path = f"/api/v1/clubs/{uuid4()}/announcements/{uuid4()}"
+    response = client.patch(path, headers=bearer(roles=("club_admin",)), json={"cupos": 3})
+    assert response.status_code == 403 and response.json()["code"] == "account_suspended"
+    assert upstream.other_calls == []
+    assert client.patch(path, json={"cupos": 3}).status_code == 401
