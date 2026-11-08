@@ -1,4 +1,4 @@
-"""Expose ms-club (clubs, convocatorias, postulaciones, comunicados and plan payments) through the gateway.
+"""Expose ms-club (clubs, convocatorias, postulaciones and comunicados) through the gateway.
 
 Reading the directory and the convocatorias section is public (visitors browse them); everything that
 acts on behalf of a person needs a valid access token, which ms-club validates again. Fixed paths are
@@ -9,22 +9,21 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from app.api.dependencies.security import get_current_principal
+from app.api.routes.proxy_registry import register
 from app.api.dependencies.services import get_clubs_service
 from app.api.routes.users import forward_request
 from app.services.clubs_service import ClubsService
 
 router = APIRouter(prefix="/api/v1/clubs", tags=["Clubs"])
-payments_router = APIRouter(prefix="/api/v1/payments", tags=["Payments"])
 
 UUID_EXAMPLE = "10000000-0000-4000-8000-000000000002"
 PAGE = {
     "page": {"type": "integer", "minimum": 1, "default": 1},
     "page_size": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20},
 }
-INTEGER_PATH_PARAMETERS = {"deporte_id", "plan_id"}
+INTEGER_PATH_PARAMETERS = {"deporte_id"}
 PATH_PARAMETERS = ("club_id", "convocatoria_id", "postulacion_id", "deporte_id", "usuario_id", "asignacion_id", "hilo_id",
-                   "canal_id", "plan_id")
+                   "canal_id")
 MESSAGES = {
     "after_id": {"type": "integer", "minimum": 0},
     "before_id": {"type": "integer", "minimum": 1},
@@ -33,8 +32,6 @@ MESSAGES = {
 CANAL_EXAMPLE = {"nombre": "Sub-17 avisos", "miembros_escriben": False}
 MESSAGE_EXAMPLE = {"texto": "¿La prueba del sábado es abierta?", "client_message_id": "30000000-0000-4000-8000-000000000001"}
 
-PLAN_EXAMPLE = {"nombre": "Pro Mensual", "tipo": "USUARIO", "categoria": "PLAN", "precio": 4990, "duracion_dias": 30,
-                "beneficios": ["Actividades sin límite", "Filtros avanzados"], "descripcion": "Para quien entrena seguido"}
 CLUB_EXAMPLE = {"nombre": "Club Deportivo Ñuñoa", "descripcion": "Fútbol y tenis para todas las edades.",
                 "comuna": "Ñuñoa", "deporte_ids": [1, 2]}
 CONVOCATORIA_EXAMPLE = {
@@ -120,63 +117,12 @@ CLUBS = [
      {"decision": "mantener"}),
 ]
 
-PAYMENTS = [
-    ("/webpay/checkout", ["GET"], True, "Formulario POST hacia Webpay (enlace firmado)", None, None),
-    ("/plans", ["GET"], True, "Planes disponibles", {"tipo": {"type": "string", "enum": ["USUARIO", "CLUB"]}}, None),
-    ("/webpay/initiate", ["POST"], False, "Iniciar el pago de un plan con Webpay Plus", None, {"plan_id": 1}),
-    ("/webpay/commit", ["POST"], False, "Confirmar el pago al volver de Webpay", None, {"token_ws": "a" * 64}),
-    ("/subscription/me", ["GET"], False, "Mi suscripción", None, None),
-    # HU-56: gestión de planes y convenios. El rol admin lo exige ms-club (el gateway solo valida el JWT).
-    ("/admin/plans", ["GET"], False, "Planes y convenios con sus suscripciones vigentes (administrador)",
-     {"estado": {"type": "string", "enum": ["activo", "inactivo", "todos"]},
-      "tipo": {"type": "string", "enum": ["USUARIO", "CLUB"]},
-      "categoria": {"type": "string", "enum": ["PLAN", "CONVENIO"]},
-      "pagina": {"type": "integer", "minimum": 1, "default": 1},
-      "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 20}}, None),
-    ("/admin/plans", ["POST"], False, "Crear un plan o convenio (administrador)", None, PLAN_EXAMPLE),
-    ("/admin/plans/{plan_id}", ["PATCH"], False, "Editar un plan o convenio activo (administrador)", None,
-     {"precio": 5990, "beneficios": ["Actividades sin límite"], "motivo": "Ajuste de temporada"}),
-    ("/admin/plans/{plan_id}/deactivate", ["POST"], False, "Desactivar un plan o convenio (administrador)", None,
-     {"motivo": "Se retira la oferta"}),
-    ("/admin/plans/{plan_id}/reactivate", ["POST"], False, "Reactivar un plan o convenio desactivado (administrador)",
-     None, {"motivo": "Vuelve la oferta"}),
-    ("/admin/plans/{plan_id}/subscriptions", ["GET"], False, "Suscripciones de un plan o convenio (administrador)",
-     {"estado": {"type": "string", "enum": ["vigente", "vencida", "todas"]},
-      "pagina": {"type": "integer", "minimum": 1, "default": 1},
-      "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}, None),
-    # The browser comes back from Webpay here (no token): the service redirects it to the app.
-    ("/webpay/return", ["GET", "POST"], True, "Retorno de Webpay Plus (redirige a la app)", None, None),
-    # Simulated Webpay for development: the service answers 404 to these unless WEBPAY_MOCK_MODE=true.
-    ("/webpay/mock", ["GET", "POST"], True, "Página de pago simulada (solo con WEBPAY_MOCK_MODE)", None, None),
-    ("/webpay/mock/decision", ["GET"], True, "Decisión en la página simulada (solo con WEBPAY_MOCK_MODE)", None, None),
-]
 
 
 async def proxy(request: Request, service: Annotated[ClubsService, Depends(get_clubs_service)]):
     return await forward_request(request, service)
 
 
-def register(target: APIRouter, routes, prefix_name: str) -> None:
-    for path, methods, public, summary, query, body in routes:
-        for method in methods:
-            parameters = [
-                {"name": name, "in": "path", "required": True,
-                 "schema": {"type": "integer"} if name in INTEGER_PATH_PARAMETERS else {"type": "string", "format": "uuid"}}
-                for name in PATH_PARAMETERS if "{" + name + "}" in path
-            ]
-            parameters += [{"name": name, "in": "query", "required": False, "schema": schema}
-                           for name, schema in (query or {}).items()]
-            docs = {"parameters": parameters}
-            if body is not None and method in ("POST", "PUT", "PATCH"):
-                docs["requestBody"] = {"required": True, "content": {"application/json": {
-                    "schema": {"type": "object"}, "example": body}}}
-            target.add_api_route(
-                path, proxy, methods=[method], response_class=Response, summary=summary,
-                dependencies=[] if public else [Depends(get_current_principal)],
-                name=f"{prefix_name}_{method.lower()}_{path.strip('/').replace('/', '_') or 'root'}",
-                openapi_extra=docs,
-            )
 
 
-register(router, CLUBS, "clubs")
-register(payments_router, PAYMENTS, "payments")
+register(router, CLUBS, "clubs", proxy, PATH_PARAMETERS, INTEGER_PATH_PARAMETERS)
