@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     matching_service_url: HttpUrl | None = None
     activities_service_url: HttpUrl | None = None
     clubs_service_url: HttpUrl | None = None
+    payments_service_url: HttpUrl | None = None
     users_timeout_seconds: float = Field(default=10, gt=0, le=120)
     notifications_database_url: str | None = None
     matching_database_url: str | None = None
@@ -41,7 +42,7 @@ class Settings(BaseSettings):
     # multipart envelope). Every other request keeps the 1 MiB limit. Ms_Users enforces the exact photo limit.
     photo_upload_max_bytes: int = Field(default=6 * 1024 * 1024, ge=1024, le=64 * 1024 * 1024)
 
-    @field_validator("users_service_url", "matching_service_url", "activities_service_url", "clubs_service_url", mode="before")
+    @field_validator("users_service_url", "matching_service_url", "activities_service_url", "clubs_service_url", "payments_service_url", mode="before")
     @classmethod
     def empty_service_urls_are_unset(cls, value: object) -> object:
         # compose.yaml passes "" when the variable is missing (e.g. CLUBS_SERVICE_URL).
@@ -49,7 +50,7 @@ class Settings(BaseSettings):
             return None
         return value
 
-    @field_validator("users_service_url", "matching_service_url", "activities_service_url", "clubs_service_url")
+    @field_validator("users_service_url", "matching_service_url", "activities_service_url", "clubs_service_url", "payments_service_url")
     @classmethod
     def validate_users_origin(cls, value: HttpUrl | None) -> HttpUrl | None:
         if value and (value.username or value.password or value.query or value.fragment or value.path not in (None, "/")):

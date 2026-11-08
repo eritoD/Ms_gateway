@@ -17,12 +17,12 @@ OTHER = str(uuid4())
 @contextmanager
 def gateway(monkeypatch, service, handler):
     """The gateway with one upstream replaced by `handler`. service: clubs, matching or users."""
-    env = {"clubs": "CLUBS_SERVICE_URL", "matching": "MATCHING_SERVICE_URL", "users": "USERS_SERVICE_URL"}
+    env = {"clubs": "CLUBS_SERVICE_URL", "matching": "MATCHING_SERVICE_URL", "users": "USERS_SERVICE_URL", "payments": "PAYMENTS_SERVICE_URL"}
     for name in env.values():
         monkeypatch.delenv(name, raising=False)
     if handler is not None:
         monkeypatch.setenv(env[service], {"clubs": "http://ms_club:8004", "matching": "http://ms_matching:8002",
-                                          "users": "http://ms_users:8001"}[service])
+                                          "users": "http://ms_users:8001", "payments": "http://ms_pago:8005"}[service])
     monkeypatch.setenv("JWT_SECRET", SECRET)
     get_settings.cache_clear()
     application = create_app()
@@ -118,21 +118,21 @@ PRIVATE = [
 @pytest.mark.parametrize(("method", "path"), PUBLIC)
 def test_the_public_directory_works_without_a_session(monkeypatch, method, path):
     upstream = Upstream()
-    with gateway(monkeypatch, "clubs", upstream) as client:
+    with gateway(monkeypatch, "payments" if "/payments" in path else "clubs", upstream) as client:
         response = client.request(method, path)
     assert response.status_code == 200 and response.json() == {"ok": True}
     assert response.headers["cache-control"] == "no-store"
     [call] = upstream.calls
     assert call.method == method
     assert f"{call.url.path}?{call.url.query.decode()}".rstrip("?") == path.replace("%C3%91u%C3%B1oa", "%C3%91u%C3%B1oa")
-    assert call.url.host == "ms_club" and call.url.port == 8004
+    assert call.url.host == ("ms_pago" if "/payments" in path else "ms_club") and call.url.port == (8005 if "/payments" in path else 8004)
     assert "authorization" not in call.headers
 
 
 @pytest.mark.parametrize(("method", "path"), PRIVATE)
 def test_everything_that_acts_for_a_person_needs_a_session(monkeypatch, method, path):
     upstream = Upstream()
-    with gateway(monkeypatch, "clubs", upstream) as client:
+    with gateway(monkeypatch, "payments" if "/payments" in path else "clubs", upstream) as client:
         assert client.request(method, path).status_code == 401
         assert client.request(method, path, headers={"Authorization": "Bearer basura"}).status_code == 401
         assert upstream.calls == []  # the request never reached ms-club
@@ -190,7 +190,7 @@ def test_an_unavailable_or_slow_ms_club_is_a_503_or_504(monkeypatch):
 
 def test_without_a_configured_ms_club_the_routes_answer_503(monkeypatch):
     with gateway(monkeypatch, "clubs", None) as client:
-        for path in ("/api/v1/clubs", "/api/v1/payments/plans"):
+        for path in ("/api/v1/clubs",):
             response = client.get(path)
             assert response.status_code == 503 and response.json() == {"detail": "Ms_Club no está configurado"}
         assert client.get("/api/v1/clubs/me", headers=token_headers()).status_code == 503
@@ -199,7 +199,7 @@ def test_without_a_configured_ms_club_the_routes_answer_503(monkeypatch):
 def test_plan_management_routes_are_declared_and_have_no_delete(monkeypatch):
     """HU-56: a plan is deactivated, never deleted; the id in the path is an integer."""
     upstream = Upstream()
-    with gateway(monkeypatch, "clubs", upstream) as client:
+    with gateway(monkeypatch, "payments", upstream) as client:
         for method in ("DELETE", "PUT"):
             assert client.request(method, "/api/v1/payments/admin/plans/7", headers=token_headers()).status_code in (404, 405)
         assert client.request("DELETE", "/api/v1/payments/admin/plans", headers=token_headers()).status_code in (404, 405)
@@ -219,10 +219,10 @@ def test_plan_management_routes_are_declared_and_have_no_delete(monkeypatch):
 
 
 def test_the_webpay_return_keeps_its_redirect_to_the_app(monkeypatch):
-    """ms-club answers 303 with the app's address; the gateway used to drop the Location header."""
+    """ms-pago answers 303 with the app's address; the gateway used to drop the Location header."""
     destination = "sportmatchapp://pago?token_ws=" + "a" * 64
     upstream = Upstream(httpx.Response(303, headers={"location": destination}))
-    with gateway(monkeypatch, "clubs", upstream) as client:
+    with gateway(monkeypatch, "payments", upstream) as client:
         by_get = client.get("/api/v1/payments/webpay/return?token_ws=" + "a" * 64)
         by_post = client.post("/api/v1/payments/webpay/return", data={"token_ws": "a" * 64})
     for response in (by_get, by_post):  # Transbank uses GET, or POST in its integration environment
@@ -239,7 +239,7 @@ def test_signed_checkout_is_public_and_keeps_browser_security_headers(monkeypatc
         "content-type": "text/html", "content-security-policy": "script-src 'nonce-test'",
         "referrer-policy": "no-referrer",
     }))
-    with gateway(monkeypatch, "clubs", upstream) as client:
+    with gateway(monkeypatch, "payments", upstream) as client:
         response = client.get('/api/v1/payments/webpay/checkout?ticket=signed-ticket')
     assert response.status_code == 200
     assert response.headers['content-security-policy'] == "script-src 'nonce-test'"
@@ -257,7 +257,7 @@ def test_only_redirects_carry_a_location_to_the_client(monkeypatch):
 
 def test_the_simulated_payment_page_reaches_the_browser(monkeypatch):
     page = httpx.Response(200, html="<h1>Simulación de Webpay Plus</h1>")
-    with gateway(monkeypatch, "clubs", Upstream(page)) as client:
+    with gateway(monkeypatch, "payments", Upstream(page)) as client:
         response = client.get("/api/v1/payments/webpay/mock?token_ws=" + "b" * 64)
     assert response.status_code == 200 and response.headers["content-type"].startswith("text/html")
     assert "Simulación" in response.text
@@ -379,3 +379,21 @@ def test_empty_clubs_service_url_is_unset(monkeypatch):
         assert get_settings().clubs_service_url is None
     finally:
         get_settings.cache_clear()
+
+
+def test_payments_do_not_fall_back_to_clubs_when_unconfigured(monkeypatch):
+    upstream = Upstream()
+    with gateway(monkeypatch, "clubs", upstream) as client:
+        response = client.get("/api/v1/payments/plans")
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Ms_Pago no está configurado"}
+    assert upstream.calls == []
+
+
+def test_payment_readiness_is_included_when_configured(monkeypatch):
+    upstream = Upstream(httpx.Response(503, json={"detail": "database offline"}))
+    with gateway(monkeypatch, "payments", upstream) as client:
+        response = client.get("/health/ready")
+    assert response.status_code == 503
+    assert upstream.calls[0].url.host == "ms_pago"
+    assert upstream.calls[0].url.path == "/api/v1/payments/health/ready"

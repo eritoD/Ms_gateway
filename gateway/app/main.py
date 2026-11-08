@@ -31,10 +31,10 @@ def create_app() -> FastAPI:
                 await asyncio.to_thread(worker.start)
                 stack.push_async_callback(asyncio.to_thread, worker.close)
                 application.state.notifications = worker.repository
-            for name, url in (("users", settings.users_service_url), ("matching", settings.matching_service_url), ("activities", settings.activities_service_url), ("clubs", settings.clubs_service_url)):
+            for name, url in (("users", settings.users_service_url), ("matching", settings.matching_service_url), ("activities", settings.activities_service_url), ("clubs", settings.clubs_service_url), ("payments", settings.payments_service_url)):
                 if url is not None:
                     client = await stack.enter_async_context(httpx.AsyncClient(
-                        base_url=str(url), timeout=max(settings.users_timeout_seconds, 35) if name == "clubs" else settings.users_timeout_seconds,
+                        base_url=str(url), timeout=max(settings.users_timeout_seconds, 35) if name in {"clubs", "payments"} else settings.users_timeout_seconds,
                         follow_redirects=False, trust_env=False,
                     ))
                     setattr(application.state, f"{name}_client", client)
@@ -58,6 +58,7 @@ def create_app() -> FastAPI:
                 application.state.matching_client = None
                 application.state.activities_client = None
                 application.state.clubs_client = None
+                application.state.payments_client = None
                 application.state.notifications = None
 
     application = FastAPI(
