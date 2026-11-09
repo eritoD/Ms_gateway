@@ -75,6 +75,8 @@ services:
       MATCHING_SERVICE_URL: "http://ms_matching:8002"
       # HU-47: Ms_Users pregunta aquí quién publicó una actividad reportada (/internal/v1/activities/{id}/author).
       INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
+      # HU-54: límites y destacados según el plan (ms-pago, red interna). Si ms-pago no responde, se permite la acción.
+      PAYMENTS_SERVICE_URL: "${PAYMENTS_INTERNAL_URL:-http://ms_pago:8005}"
     depends_on:
       ms_users:
         condition: service_healthy
@@ -96,6 +98,8 @@ services:
       CHAT_ATTACHMENT_HOSTS: "${CHAT_ATTACHMENT_HOSTS:-}"
       # HU-47: Ms_Users pregunta aquí quién escribió un mensaje reportado (/internal/v1/messages/{chat}/{id}/author).
       INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
+      # HU-54: límites y destacados según el plan (ms-pago, red interna). Si ms-pago no responde, se permite la acción.
+      PAYMENTS_SERVICE_URL: "${PAYMENTS_INTERNAL_URL:-http://ms_pago:8005}"
     depends_on:
       ms_users:
         condition: service_healthy
@@ -119,6 +123,9 @@ services:
       JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
       JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
       USERS_SERVICE_URL: "http://ms_users:8001"
+      INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
+      # HU-54: límites y destacados según el plan (ms-pago, red interna). Si ms-pago no responde, se permite la acción.
+      PAYMENTS_SERVICE_URL: "${PAYMENTS_INTERNAL_URL:-http://ms_pago:8005}"
     depends_on:
       ms_users:
         condition: service_healthy
@@ -180,6 +187,8 @@ services:
       # HU-47: para averiguar quién hizo una actividad o un mensaje reportado (rutas /internal de esos servicios, nunca en el gateway).
       ACTIVITIES_SERVICE_URL: "http://ms_activities:8003"
       MATCHING_SERVICE_URL: "http://ms_matching:8002"
+      # HU-54: límites y destacados según el plan (ms-pago, red interna). Si ms-pago no responde, se permite la acción.
+      PAYMENTS_SERVICE_URL: "${PAYMENTS_INTERNAL_URL:-http://ms_pago:8005}"
       # Recuperación de contraseña por correo (cualquier proveedor SMTP).
       EMAIL_BACKEND: "${EMAIL_BACKEND:-smtp}"
       SMTP_HOST: "${SMTP_HOST:-}"
