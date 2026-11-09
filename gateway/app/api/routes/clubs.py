@@ -47,6 +47,8 @@ CLUBS = [
     ("", ["POST"], False, "Crear el club del representante (rol club_admin)", None, CLUB_EXAMPLE),
     ("/deportes", ["GET"], True, "Catálogo de deportes", None, None),
     ("/me", ["GET"], False, "El club que administro (activa un correo asignado)", None, None),
+    ("/plan-usage/me", ["GET"], False,
+     "Uso de mi plan (HU-54): club (convocatorias, comunicados, canales) o deportista (postulaciones)", None, None),
     ("/announcements", ["GET"], True, "Sección de convocatorias abiertas",
      {"deporte": {"type": "string"}, "deporte_id": {"type": "integer"}, "categoria": {"type": "string"},
       "edad": {"type": "integer"}, "club_id": {"type": "string", "format": "uuid"},

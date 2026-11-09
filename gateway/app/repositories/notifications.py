@@ -1,5 +1,6 @@
 """Durable inbox and device subscriptions. Ownership always comes from the JWT."""
 import hashlib
+from datetime import datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -78,6 +79,16 @@ class NotificationRepository:
             if rows:
                 cur.execute(sql.SQL('UPDATE {} SET published_at=CURRENT_TIMESTAMP WHERE id=ANY(%s)').format(table), ([r['id'] for r in rows],))
             cur.execute(sql.SQL("DELETE FROM {} WHERE published_at < CURRENT_TIMESTAMP - interval '7 days'").format(table))
+
+    def ingest_items(self, source, items):
+        # HU-55: events read over HTTP from a service without a shared database (ms-pago). Same
+        # idempotency as ingest(): UNIQUE(source, source_id) absorbs replays before the source confirms.
+        with self.pool.connection() as dest:
+            for item in items:
+                dest.execute('''INSERT INTO notifications.inbox(id,source,source_id,user_id,kind,title,body,data,created_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(source,source_id) DO NOTHING''',
+                    (uuid4(), source, item['id'], UUID(str(item['user_id'])), item['kind'], item['title'],
+                     item['body'], Jsonb(item['data']), datetime.fromisoformat(item['created_at'])))
 
     @staticmethod
     def _muted_message(source_cur, dest, schema, row):

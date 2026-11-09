@@ -1,7 +1,8 @@
 """Payments, plans and subscriptions are forwarded exclusively to ms-pago."""
 from typing import Annotated
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from app.api.dependencies.services import get_payments_service
+from app.api.dependencies.security import require_any_role
 from app.api.routes.proxy_registry import register
 from app.api.routes.users import forward_request
 from app.services.payments_service import PaymentsService
@@ -51,3 +52,25 @@ async def proxy(request: Request, service: Annotated[PaymentsService, Depends(ge
     return await forward_request(request, service)
 
 register(router, PAYMENTS, "payments", proxy, ("plan_id", "transaccion_id"), {"plan_id"})
+
+# HU-57: pagos de la plataforma, solo lectura y solo para el administrador. A diferencia de las demás rutas, el rol
+# admin se exige también aquí (defensa en profundidad): un no-admin recibe 403 sin llegar a ms-pago, que igual lo
+# vuelve a comprobar. Solo GET: no existe forma de modificar un pago desde el panel.
+ADMIN_TRANSACTIONS_QUERY = {
+    "estado": {"type": "string", "enum": ["PENDING", "APPROVED", "REJECTED", "CANCELLED"]},
+    "desde": {"type": "string", "format": "date"},
+    "hasta": {"type": "string", "format": "date"},
+    "categoria": {"type": "string", "enum": ["PLAN", "CONVENIO"]},
+    "tipo": {"type": "string", "enum": ["USUARIO", "CLUB"]},
+    "page": {"type": "integer", "minimum": 1, "default": 1},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 200, "default": 20},
+}
+
+router.add_api_route(
+    "/admin/transactions", proxy, methods=["GET"], response_class=Response,
+    summary="Pagos de la plataforma (administrador, solo lectura)",
+    dependencies=[Depends(require_any_role("admin"))],
+    name="payments_get_admin_transactions",
+    openapi_extra={"parameters": [{"name": name, "in": "query", "required": False, "schema": schema}
+                                  for name, schema in ADMIN_TRANSACTIONS_QUERY.items()]},
+)

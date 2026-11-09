@@ -26,6 +26,8 @@ router.add_api_route("", proxy, methods=["POST"], response_class=Response, statu
             "capacity": 10,
         }}}}})
 # Declared before "/{activity_id}" only for the documentation; every path is forwarded as is.
+router.add_api_route("/plan-usage", proxy, methods=["GET"], response_class=Response,
+    summary="Uso de mi plan: postulaciones (24 h) y actividades organizadas (30 días) (HU-54)")
 router.add_api_route("/history", proxy, methods=["GET"], response_class=Response,
     summary="Historial: actividades ya realizadas donde organizaste o participaste", openapi_extra={"parameters": [
         {"name": "limit", "in": "query", "schema": {"type": "integer", "minimum": 1, "maximum": 100}},
