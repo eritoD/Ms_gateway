@@ -195,6 +195,8 @@ def test_suggestion_filters_preserve_query_and_require_auth(monkeypatch):
 
 @pytest.mark.parametrize("method,path,status", [
     ("GET", "/api/v1/users/me/blocks", 200),
+    ("GET", "/api/v1/users/blocks/me?limit=2&offset=4", 200),                       # HU-66: the page goes through
+    ("DELETE", f"/api/v1/users/block/{uuid4()}", 204),                              # HU-66
     ("PUT", f"/api/v1/users/me/blocks/{uuid4()}", 204),
     ("DELETE", f"/api/v1/users/me/blocks/{uuid4()}", 204),
     ("POST", "/api/v1/users/reports", 201),
