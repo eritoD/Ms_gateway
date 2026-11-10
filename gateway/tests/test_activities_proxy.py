@@ -177,3 +177,20 @@ def test_group_chat_requires_token_and_forwards_path_and_body(monkeypatch):
     assert calls[1].url.query == b'after_id=7&limit=50'
     assert calls[2].content == body
     assert all('x-user-id' not in c.headers for c in calls)
+
+
+def test_group_chat_replies_and_the_page_around_a_message_go_through_untouched(monkeypatch):
+    """HU-64: `reply_to` travels in the body and `around_id` in the query, for the group chat."""
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(201 if request.method == 'POST' else 200, json={'ok': True})
+    with activities_client(monkeypatch, upstream) as client:
+        base = '/api/v1/activities/abc/chat/messages'
+        assert client.post(base, json={'text': 'x', 'reply_to': 4}).status_code == 401
+        assert client.get(base + '?around_id=4').status_code == 401
+        assert calls == []
+        body = b'{"text": "Hola", "client_message_id": "30000000-0000-4000-8000-000000000001", "reply_to": 4}'
+        assert client.post(base, headers=token_headers(), content=body).status_code == 201
+        assert client.get(base + '?around_id=4&limit=20', headers=token_headers()).status_code == 200
+    assert calls[0].content == body and calls[1].url.query == b'around_id=4&limit=20'

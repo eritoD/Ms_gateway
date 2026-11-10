@@ -374,3 +374,19 @@ def test_a_suspended_club_cannot_review_an_applicant(guarded):
     assert response.status_code == 403 and response.json()["code"] == "account_suspended"
     assert upstream.other_calls == []
     assert client.patch(path, json={"estado": "PRESELECCIONADO"}).status_code == 401
+
+
+@pytest.mark.parametrize("method,path", [
+    ("POST", f"/api/v1/chats/{uuid4()}/messages"),
+    ("GET", f"/api/v1/chats/{uuid4()}/messages?around_id=4"),
+    ("POST", f"/api/v1/activities/{uuid4()}/chat/messages"),
+    ("GET", f"/api/v1/activities/{uuid4()}/chat/messages?around_id=4"),
+])
+def test_a_suspended_account_cannot_answer_or_open_a_quoted_message(guarded, method, path):
+    """HU-64: answering and loading around a message are private routes, so the HU-45 block applies to them."""
+    client, upstream = guarded
+    upstream.accounts[USER] = SUSPENDED
+    response = client.request(method, path, headers=bearer(), json={"content": "x", "replyTo": "4"} if method == "POST" else None)
+    assert response.status_code == 403 and response.json()["code"] == "account_suspended"
+    assert upstream.other_calls == []
+    assert client.request(method, path).status_code == 401

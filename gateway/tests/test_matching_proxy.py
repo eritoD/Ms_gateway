@@ -73,3 +73,22 @@ def test_cancel_proxies_delete_authentication_and_empty_response(monkeypatch):
     assert calls[0].method == "DELETE"
     assert calls[0].url.path == path
     assert calls[0].headers["authorization"].startswith("Bearer ")
+
+
+def test_chat_replies_and_the_page_around_a_message_go_through_untouched(monkeypatch):
+    """HU-64: `replyTo` travels in the body and `around_id` in the query, for the individual chat."""
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(200, json={"id": "9", "reply_to": {"id": "4", "available": True}})
+    base = "/api/v1/chats/30000000-0000-4000-8000-000000000001/messages"
+    with matching_client(monkeypatch, upstream) as client:
+        assert client.post(base, json={"content": "x", "replyTo": "4"}).status_code == 401
+        assert client.get(base + "?around_id=4&limit=20").status_code == 401
+        assert calls == []
+        body = b'{"type": "TEXT", "content": "ok", "replyTo": "4"}'
+        sent = client.post(base, headers={**token_headers(), "X-User-ID": "forged"}, content=body)
+        page = client.get(base + "?around_id=4&limit=20", headers=token_headers())
+    assert sent.json()["reply_to"]["id"] == "4" and page.status_code == 200
+    assert calls[0].content == body and calls[1].url.query == b"around_id=4&limit=20"
+    assert "x-user-id" not in calls[0].headers
