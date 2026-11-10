@@ -1,5 +1,25 @@
 # SportMatch Backend
 
+## Desarrollo en este workspace de Windows
+
+Desde esta carpeta, con Docker Desktop iniciado:
+
+```powershell
+docker compose -f compose.yaml -f compose.windows.yaml up --build -d
+docker compose -f compose.yaml -f compose.windows.yaml ps -a
+```
+
+El complemento Windows usa `../ms-machine`, `../Ms_activities` y `../Ms-club`,
+conserva PostgreSQL en el volumen existente y aplica las migraciones de Users y
+Clubes y ms-pago. `POSTGRES_PORT` permite elegir el puerto local de la base sin modificar
+otros proyectos (5433 por defecto; este equipo usa 5434 en `.env`). La API sigue
+en `http://localhost:8000`; el sitio web de este workspace usa el puerto 3001.
+Incluye ese origen en `CORS_ALLOWED_ORIGINS` y configura
+`WEBPAY_WEB_RETURN_URL=http://localhost:3001/pago/resultado`.
+
+Los nuevos módulos requieren `INTERNAL_SERVICE_TOKEN` compartido entre servicios
+(al menos 32 bytes). Los respaldos locales de bases están excluidos de Git.
+
 El gateway también integra [`../Ms_Matching`](../Ms_Matching/README.md), servicio
 independiente para solicitudes, matches y mensajes. Las rutas `/api/v1/matching`
 requieren JWT y se reenvían a `ms_matching:8002`. Configura `MATCHING_DATABASE_URL`
@@ -124,10 +144,20 @@ tape a `/api/v1/clubs/me`.
 | `POST /{club_id}/announcements`, `POST /{club_id}/announcements/{id}/close` | Token (representante) |
 | `GET/POST /announcements/{id}/applications`, `GET /announcements/applications/me`, `PATCH /announcements/applications/{id}` | Token (postular, seguir y revisar candidatos) |
 | `GET/POST /{club_id}/notices`, `GET /notices/me` | Token (comunicados) |
+
+**ms-pago** (`PAYMENTS_SERVICE_URL`, puerto 8005):
+
+| Ruta | Acceso |
+|---|---|
 | `GET /api/v1/payments/plans` | Pública |
 | `POST /api/v1/payments/webpay/initiate`, `POST /webpay/commit`, `GET /subscription/me` | Token |
-| `GET, POST /api/v1/payments/webpay/return` | Pública: es donde Webpay devuelve al navegador, que no lleva sesión. Responde `303` hacia la app (`WEBPAY_FRONTEND_RETURN_URL` de ms-club). |
-| `GET, POST /api/v1/payments/webpay/mock`, `GET /webpay/mock/decision` | Pública, pero ms-club responde 404 salvo con `WEBPAY_MOCK_MODE=true` (desarrollo) |
+| `GET, POST /api/v1/payments/webpay/return` | Pública: es donde Webpay devuelve al navegador, que no lleva sesión. Responde `303` hacia la app (`WEBPAY_FRONTEND_RETURN_URL` de ms-pago). |
+| `GET, POST /api/v1/payments/webpay/mock`, `GET /webpay/mock/decision` | Pública, pero ms-pago responde 404 salvo con `WEBPAY_MOCK_MODE=true` (desarrollo) |
+
+**ms-pago** (`PAYMENTS_SERVICE_URL`, puerto 8005, base propia `sportmatch_payments`):
+las rutas `/api/v1/payments/*` anteriores se reenvían exclusivamente a este servicio.
+Incluye planes, convenios, suscripciones y administración (`/admin/plans`).
+`Ms-club` solo conserva el dominio de clubes. Ambos servicios pueden configurarse de forma independiente.
 
 **Ms_Matching**, además de `/api/v1/matching`: `GET /api/v1/chats`, `GET/POST /api/v1/chats/{id}/messages` y
 `PATCH /api/v1/chats/{id}/read`, todas con token. El WebSocket `wss://<gateway>/api/v1/chats/ws` (app y sitio web) sí se reenvía: el gateway valida
@@ -140,7 +170,7 @@ fuera de `CORS_ALLOWED_ORIGINS` rechaza el handshake. El sitio web de `ms-club` 
 `GET/PATCH /chat-preferences` y `GET/PUT/DELETE /location` (posición en vivo para recomendar personas cercanas), con token. `/blocks/check` es para que lo consulten otros servicios y no se expone.
 
 El proxy ahora reenvía la cabecera `Location` de una respuesta `3xx` del servicio (antes la descartaba, y
-el retorno de Webpay quedaba sin destino). Para que `WEBPAY_PUBLIC_URL` de ms-club apunte a este gateway, debe
+el retorno de Webpay quedaba sin destino). Para que `WEBPAY_PUBLIC_URL` de ms-pago apunte a este gateway, debe
 ser la dirección que alcanza el navegador del usuario.
 
 ## Compatibilidad de la base existente
@@ -180,3 +210,25 @@ La prueba crea cuentas temporales, verifica persistencia y permisos y limpia exc
 Para ejecutar sin Docker, utiliza entornos virtuales separados. En `Ms_Users`, instala `pip install -e '.[dev]'` y ejecuta `python -m uvicorn app.main:app --env-file .env --host 127.0.0.1 --port 8001`. En `gateway`, instala `pip install -r requirements.txt` y ejecuta `python -m uvicorn app.main:app --env-file ../.env --host 127.0.0.1 --port 8000`. Detén primero los contenedores para liberar los puertos.
 
 Referencias técnicas: [cliente HTTP asíncrono de HTTPX](https://www.python-httpx.org/async/) y [validación de claims en PyJWT](https://pyjwt.readthedocs.io/en/stable/usage.html).
+
+## Migración del dominio financiero
+
+El entorno Windows crea la base y el rol de ms-pago mediante `payments_migrate`.
+Ese paso aplica el esquema sin sembrar planes. `scripts/migrate_payments.py`
+transfiere el catálogo, transacciones y suscripciones existentes bajo bloqueo,
+conserva IDs y compara SHA-256 de todas las filas antes de confirmar. Sus DSN se
+reciben por `PAYMENT_MIGRATION_SOURCE_URL` y `PAYMENT_MIGRATION_TARGET_URL`.
+
+Con los servicios de origen sin escrituras, ejecutar primero la transferencia
+sin flags. Una vez verificado el servicio nuevo, `--retire-source` elimina solo
+las tres tablas financieras originales, sin CASCADE y tras verificar que el
+origen no cambió desde la copia. La base destino conserva un recibo de la
+importación; los reintentos nunca sobrescriben datos nuevos. Respaldar la base
+antes del cambio. Las pruebas `tests/test_payments_migration.py` se ejecutan en
+bases nuevas descartables con `PAYMENT_MIGRATION_TEST_ADMIN_URL`.
+
+Para desarrollo sin cobros, configurar `WEBPAY_MOCK_MODE=true` y
+`WEBPAY_ENVIRONMENT=INTEGRATION`. `scripts/smoke_payments.py` comprueba aprobado,
+rechazado, cancelado, callback y repetición para deportista y club; solo confirma
+transacciones cuyo ambiente sea `MOCK`. Las variables `WEBPAY_*` se entregan a
+ms-pago y no a ms-club. El simulador está prohibido en producción.

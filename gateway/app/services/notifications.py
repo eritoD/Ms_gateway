@@ -7,6 +7,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from app.repositories.notifications import NotificationRepository
+from app.services.payment_notices import PaymentNotices
 
 log = logging.getLogger(__name__)
 EXPO_URL = 'https://exp.host/--/api/v2/push/'
@@ -21,6 +22,7 @@ class NotificationWorker:
         self.settings = settings
         self.stop = threading.Event()
         self.pools = []
+        self.payments = None  # HU-55: ms-pago notices, read over HTTP
 
     def pool(self, url):
         pool = ConnectionPool(url, min_size=1, max_size=4, kwargs={'connect_timeout': 5}, open=False)
@@ -36,18 +38,31 @@ class NotificationWorker:
                 (self.settings.matching_database_url, 'matching_api'),
                 (self.settings.activities_database_url, 'activities_api'),
                 (self.settings.clubs_database_url, 'clubs_api')) if url]
+            self.payments = self.payment_notices()
             self.thread = threading.Thread(target=self.run, name='notifications', daemon=True)
             self.thread.start()
         except Exception:
             for pool in self.pools:
                 pool.close()
+            if self.payments is not None:
+                self.payments.client.close()
             raise
+
+    def payment_notices(self):
+        # HU-55: needs ms-pago's address and the service secret; without either, its notices wait in its outbox.
+        url, token = self.settings.payments_service_url, self.settings.internal_service_token
+        if url is None or token is None:
+            return None
+        client = httpx.Client(base_url=str(url), timeout=10, follow_redirects=False, trust_env=False)
+        return PaymentNotices(client, token.get_secret_value())
 
     def close(self):
         self.stop.set()
         self.thread.join()
         for pool in self.pools:
             pool.close()
+        if self.payments is not None:
+            self.payments.client.close()
 
     def run(self):
         headers = {}
@@ -61,6 +76,11 @@ class NotificationWorker:
                     except Exception:
                         # Never log payloads, credentials or push tokens.
                         log.warning('Notification ingestion failed for %s; will retry', schema)
+                if self.payments is not None and self.payments.due():
+                    try:
+                        self.payments.ingest(self.repository)
+                    except Exception:
+                        log.warning('Notification ingestion failed for %s; will retry', 'ms_pago')
                 if self.settings.push_enabled:
                     try:
                         self.deliver(client)

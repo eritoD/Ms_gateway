@@ -28,5 +28,4 @@ GRANT USAGE ON SCHEMA public TO $ROLE;
 GRANT SELECT ON club, deporte, club_deporte TO $ROLE;
 SQL
 for f in /clubs-db/migrations/*.sql; do run "$f"; done
-run /clubs-db/seeds/demo_planes.sql
 echo "Base $DB lista."

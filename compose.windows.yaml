@@ -11,7 +11,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./docker/init-dbs.sql:/docker-entrypoint-initdb.d/01-init-dbs.sql:ro
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -39,7 +39,7 @@ services:
         condition: service_healthy
 
   # Crea el rol y la base de ms-club si faltan y aplica sus scripts (tablas base,
-  # migraciones y planes de prueba). Termina con código 0.
+  # y migraciones del dominio de clubes). Termina con código 0.
   clubs_migrate:
     image: postgres:16-alpine
     environment:
@@ -57,6 +57,8 @@ services:
   # El worker de notificaciones del gateway se conecta a la base de ms-club (CLUBS_DATABASE_URL).
   gateway:
     depends_on:
+      ms_pago:
+        condition: service_healthy
       clubs_migrate:
         condition: service_completed_successfully
 
@@ -71,6 +73,30 @@ services:
     depends_on:
       clubs_migrate:
         condition: service_completed_successfully
+
+  payments_migrate:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-SportmatchLocal2026}"
+      PAYMENTS_DB_PASSWORD: "${PAYMENTS_DB_PASSWORD:?Configure PAYMENTS_DB_PASSWORD en .env}"
+    volumes:
+      - ../ms-pago/db:/payments-db:ro
+      - ./docker/payments-migrate.sh:/payments-migrate.sh:ro
+    entrypoint: ["sh", "/payments-migrate.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  ms_pago:
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    depends_on:
+      payments_migrate:
+        condition: service_completed_successfully
+      ms_club:
+        condition: service_healthy
 
 volumes:
   pgdata:
