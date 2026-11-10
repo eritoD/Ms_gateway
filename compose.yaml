@@ -27,8 +27,9 @@ services:
       INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
       MATCHING_SERVICE_URL: "http://ms_matching:8002"
       ACTIVITIES_SERVICE_URL: "http://ms_activities:8003"
-      # Opcional: sin CLUBS_SERVICE_URL las rutas de clubes y pagos responden 503.
+      # Opcional: sin CLUBS_SERVICE_URL las rutas de clubes responden 503.
       CLUBS_SERVICE_URL: "${CLUBS_SERVICE_URL:-}"
+      PAYMENTS_SERVICE_URL: "${PAYMENTS_SERVICE_URL:-}"
       USERS_TIMEOUT_SECONDS: "${USERS_TIMEOUT_SECONDS:-10}"
       # HU-61: cuerpo máximo que el gateway reenvía al subir una foto de perfil (la foto de 5 MB más el envoltorio).
       PHOTO_UPLOAD_MAX_BYTES: "${PHOTO_UPLOAD_MAX_BYTES:-6291456}"
@@ -74,6 +75,8 @@ services:
       MATCHING_SERVICE_URL: "http://ms_matching:8002"
       # HU-47: Ms_Users pregunta aquí quién publicó una actividad reportada (/internal/v1/activities/{id}/author).
       INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
+      # HU-54: límites y destacados según el plan (ms-pago, red interna). Si ms-pago no responde, se permite la acción.
+      PAYMENTS_SERVICE_URL: "${PAYMENTS_INTERNAL_URL:-http://ms_pago:8005}"
     depends_on:
       ms_users:
         condition: service_healthy
@@ -95,6 +98,8 @@ services:
       CHAT_ATTACHMENT_HOSTS: "${CHAT_ATTACHMENT_HOSTS:-}"
       # HU-47: Ms_Users pregunta aquí quién escribió un mensaje reportado (/internal/v1/messages/{chat}/{id}/author).
       INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
+      # HU-54: límites y destacados según el plan (ms-pago, red interna). Si ms-pago no responde, se permite la acción.
+      PAYMENTS_SERVICE_URL: "${PAYMENTS_INTERNAL_URL:-http://ms_pago:8005}"
     depends_on:
       ms_users:
         condition: service_healthy
@@ -118,21 +123,44 @@ services:
       JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
       JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
       USERS_SERVICE_URL: "http://ms_users:8001"
-      # HU-56: secreto entre servicios para auditar los cambios de planes en Ms_Users (el mismo valor que Ms_Users).
-      # Sin él (o con menos de 32 bytes) los cambios de planes responden 503: nunca se guardan sin su auditoría.
       INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
-      WEBPAY_MOCK_MODE: "${WEBPAY_MOCK_MODE:-false}"
-      WEBPAY_ENVIRONMENT: "${WEBPAY_ENVIRONMENT:-INTEGRATION}"
-      WEBPAY_WEB_RETURN_URL: "${WEBPAY_WEB_RETURN_URL:-http://localhost:3000/pago/resultado}"
-      WEBPAY_COMMERCE_CODE: "${WEBPAY_COMMERCE_CODE:-}"
-      WEBPAY_API_KEY: "${WEBPAY_API_KEY:-}"
-      WEBPAY_PUBLIC_URL: "${WEBPAY_PUBLIC_URL:?Dirección del gateway que alcanza el navegador}"
-      WEBPAY_FRONTEND_RETURN_URL: "${WEBPAY_FRONTEND_RETURN_URL:?Página del sitio web a la que vuelve el pago}"
+      # HU-54: límites y destacados según el plan (ms-pago, red interna). Si ms-pago no responde, se permite la acción.
+      PAYMENTS_SERVICE_URL: "${PAYMENTS_INTERNAL_URL:-http://ms_pago:8005}"
     depends_on:
       ms_users:
         condition: service_healthy
     expose:
       - "8004"
+    restart: unless-stopped
+
+  ms_pago:
+    build:
+      context: ../ms-pago
+    environment:
+      DB_HOST: "${PAYMENTS_DB_HOST:-host.docker.internal}"
+      DB_PORT: "${PAYMENTS_DB_PORT:-5432}"
+      DB_USER: "${PAYMENTS_DB_USER:-sportmatch_payments}"
+      DB_PASSWORD: "${PAYMENTS_DB_PASSWORD:?Configure PAYMENTS_DB_PASSWORD en .env}"
+      DB_NAME: "${PAYMENTS_DB_NAME:-sportmatch_payments}"
+      JWT_SECRET: "${JWT_SECRET:?Configure JWT_SECRET en .env}"
+      JWT_ISSUER: "${JWT_ISSUER:-sportmatch-auth}"
+      JWT_AUDIENCE: "${JWT_AUDIENCE:-sportmatch-mobile}"
+      USERS_SERVICE_URL: "http://ms_users:8001"
+      CLUBS_SERVICE_URL: "http://ms_club:8004"
+      INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:-}"
+      WEBPAY_MOCK_MODE: "${WEBPAY_MOCK_MODE:-false}"
+      WEBPAY_ENVIRONMENT: "${WEBPAY_ENVIRONMENT:-INTEGRATION}"
+      WEBPAY_COMMERCE_CODE: "${WEBPAY_COMMERCE_CODE:-}"
+      WEBPAY_API_KEY: "${WEBPAY_API_KEY:-}"
+      WEBPAY_PUBLIC_URL: "${WEBPAY_PUBLIC_URL:?Dirección pública del gateway}"
+      WEBPAY_FRONTEND_RETURN_URL: "${WEBPAY_FRONTEND_RETURN_URL:?Destino del pago en la app}"
+      WEBPAY_WEB_RETURN_URL: "${WEBPAY_WEB_RETURN_URL:-http://localhost:3001/pago/resultado}"
+      WEBPAY_TIMEOUT_SECONDS: "${WEBPAY_TIMEOUT_SECONDS:-15}"
+    depends_on:
+      ms_users:
+        condition: service_healthy
+    expose:
+      - "8005"
     restart: unless-stopped
 
   users_migrate:
@@ -159,6 +187,8 @@ services:
       # HU-47: para averiguar quién hizo una actividad o un mensaje reportado (rutas /internal de esos servicios, nunca en el gateway).
       ACTIVITIES_SERVICE_URL: "http://ms_activities:8003"
       MATCHING_SERVICE_URL: "http://ms_matching:8002"
+      # HU-54: límites y destacados según el plan (ms-pago, red interna). Si ms-pago no responde, se permite la acción.
+      PAYMENTS_SERVICE_URL: "${PAYMENTS_INTERNAL_URL:-http://ms_pago:8005}"
       # Recuperación de contraseña por correo (cualquier proveedor SMTP).
       EMAIL_BACKEND: "${EMAIL_BACKEND:-smtp}"
       SMTP_HOST: "${SMTP_HOST:-}"

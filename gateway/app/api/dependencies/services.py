@@ -58,3 +58,11 @@ def get_activities_service(request: Request) -> ActivitiesService:
     if client is None:
         raise HTTPException(status_code=503, detail="Ms_Activities no está configurado")
     return ActivitiesService(client)
+
+
+def get_payments_service(request: Request):
+    from app.services.payments_service import PaymentsService
+    client = getattr(request.app.state, "payments_client", None)
+    if client is None:
+        raise HTTPException(status_code=503, detail="Ms_Pago no está configurado")
+    return PaymentsService(client)

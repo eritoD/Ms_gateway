@@ -4,7 +4,8 @@ from fastapi import APIRouter
 
 from app.api.routes.activities import ratings_router, router as activities_router
 from app.api.routes.chat_socket import router as chat_socket_router
-from app.api.routes.clubs import payments_router, router as clubs_router
+from app.api.routes.clubs import router as clubs_router
+from app.api.routes.payments import router as payments_router
 from app.api.routes.gateway import router as gateway_router
 from app.api.routes.health import router as health_router
 from app.api.routes.security import router as security_router

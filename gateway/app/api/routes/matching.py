@@ -16,6 +16,7 @@ async def proxy(request: Request, service: Annotated[MatchingService, Depends(ge
 
 for path, methods, summary, example in [
     ("/state", ["GET"], "Solicitudes recibidas, enviadas y matches", None),
+    ("/plan-usage", ["GET"], "Uso de mi plan: solicitudes de match en 24 h (HU-54)", None),
     ("/requests", ["POST"], "Enviar solicitud con un like", {"recipient_id": "10000000-0000-4000-8000-000000000002"}),
     ("/requests/{request_id}/decision", ["POST"], "Aceptar o rechazar una solicitud", {"action": "accept"}),
     ("/requests/{request_id}", ["DELETE"], "Cancelar una solicitud enviada pendiente", None),
