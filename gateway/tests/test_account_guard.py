@@ -336,6 +336,24 @@ def test_the_chat_socket_is_refused_when_the_account_cannot_be_checked(monkeypat
     assert matching.connections == 0
 
 
+@pytest.mark.parametrize("method,path", [
+    ("GET", "/api/v1/users/blocks/me?limit=5"),
+    ("GET", "/api/v1/users/me/blocks"),
+    ("DELETE", f"/api/v1/users/block/{uuid4()}"),
+    ("DELETE", f"/api/v1/users/me/blocks/{uuid4()}"),
+])
+def test_a_suspended_account_cannot_see_or_unblock_its_blocked_people(guarded, method, path):
+    """HU-66: the block list and the unblock are private routes, so the HU-45 block applies to them."""
+    client, upstream = guarded
+    upstream.accounts[USER] = SUSPENDED
+    response = client.request(method, path, headers=bearer())
+    assert response.status_code == 403 and response.json()["code"] == "account_suspended"
+    assert upstream.other_calls == []
+    assert client.request(method, path).status_code == 401
+    assert client.request(method, path, headers=bearer(sub=str(uuid4()))).status_code == 200   # another account is fine
+    assert len(upstream.other_calls) == 1
+
+
 def test_a_suspended_club_cannot_edit_a_convocatoria(guarded):
     """HU-68: the edit route is a private route like the rest, so the HU-45 block applies to it."""
     client, upstream = guarded
@@ -345,3 +363,14 @@ def test_a_suspended_club_cannot_edit_a_convocatoria(guarded):
     assert response.status_code == 403 and response.json()["code"] == "account_suspended"
     assert upstream.other_calls == []
     assert client.patch(path, json={"cupos": 3}).status_code == 401
+
+
+def test_a_suspended_club_cannot_review_an_applicant(guarded):
+    """HU-67: changing an applicant's estado is a private route, so the HU-45 block applies to it."""
+    client, upstream = guarded
+    upstream.accounts[USER] = SUSPENDED
+    path = f"/api/v1/clubs/announcements/applications/{uuid4()}"
+    response = client.patch(path, headers=bearer(roles=("club_admin",)), json={"estado": "PRESELECCIONADO"})
+    assert response.status_code == 403 and response.json()["code"] == "account_suspended"
+    assert upstream.other_calls == []
+    assert client.patch(path, json={"estado": "PRESELECCIONADO"}).status_code == 401
