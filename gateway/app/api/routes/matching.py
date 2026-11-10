@@ -32,7 +32,7 @@ for path, methods, summary, example in [
         if method == "GET" and path.endswith("/messages"):
             docs["parameters"] += [
                 {"name": name, "in": "query", "schema": {"type": "integer", "minimum": 0}}
-                for name in ("after_id", "before_id", "limit")
+                for name in ("after_id", "before_id", "around_id", "limit")
             ]
         if method == "POST":
             docs["requestBody"] = {"required": True, "content": {"application/json": {
@@ -68,7 +68,7 @@ for path, methods, summary, example in [
         if method == "GET" and path.endswith("/messages"):
             docs["parameters"] += [
                 {"name": name, "in": "query", "schema": {"type": "integer", "minimum": 0}}
-                for name in ("after_id", "before_id", "limit")
+                for name in ("after_id", "before_id", "around_id", "limit")
             ]
         if method == "POST":
             docs["requestBody"] = {"required": True, "content": {"application/json": {
