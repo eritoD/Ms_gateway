@@ -64,7 +64,7 @@ services:
 
   ms_activities:
     build:
-      context: ../Ms_Activities
+      context: ../Ms_activities
     environment:
       ACTIVITIES_DATABASE_URL: "${ACTIVITIES_DATABASE_URL:?Configure ACTIVITIES_DATABASE_URL en .env}"
       JWT_SECRET: "${JWT_SECRET:?Configure JWT_SECRET en .env}"
@@ -129,13 +129,15 @@ services:
     depends_on:
       ms_users:
         condition: service_healthy
+      clubs_migrate:
+        condition: service_completed_successfully
     expose:
       - "8004"
     restart: unless-stopped
 
   ms_pago:
     build:
-      context: ../ms-pago
+      context: ../Ms-pago
     environment:
       DB_HOST: "${PAYMENTS_DB_HOST:-host.docker.internal}"
       DB_PORT: "${PAYMENTS_DB_PORT:-5432}"
@@ -159,9 +161,39 @@ services:
     depends_on:
       ms_users:
         condition: service_healthy
+      payments_migrate:
+        condition: service_completed_successfully
     expose:
       - "8005"
     restart: unless-stopped
+
+  # Migraciones de ms-club (mismo perfil que ms_club) y de ms-pago: aplican sus db/migrations (idempotentes) y
+  # terminan. Como users_migrate, esperan una base y un rol ya creados; compose.windows.yaml los reemplaza por
+  # versiones que también crean el rol y la base en el PostgreSQL del contenedor.
+  clubs_migrate:
+    profiles: ["clubs"]
+    build:
+      context: ../ms-club
+    environment:
+      DB_HOST: "${CLUBS_DB_HOST:-host.docker.internal}"
+      DB_PORT: "${CLUBS_DB_PORT:-5432}"
+      DB_USER: "${CLUBS_DB_USER:-sportmatch_clubs}"
+      DB_PASSWORD: "${CLUBS_DB_PASSWORD:?Configure CLUBS_DB_PASSWORD en .env}"
+      DB_NAME: "${CLUBS_DB_NAME:-sportmatch_clubs}"
+    command: ["python", "-m", "app.database.migrate"]
+    restart: "no"
+
+  payments_migrate:
+    build:
+      context: ../Ms-pago
+    environment:
+      DB_HOST: "${PAYMENTS_DB_HOST:-host.docker.internal}"
+      DB_PORT: "${PAYMENTS_DB_PORT:-5432}"
+      DB_USER: "${PAYMENTS_DB_USER:-sportmatch_payments}"
+      DB_PASSWORD: "${PAYMENTS_DB_PASSWORD:?Configure PAYMENTS_DB_PASSWORD en .env}"
+      DB_NAME: "${PAYMENTS_DB_NAME:-sportmatch_payments}"
+    command: ["python", "-m", "app.database.migrate"]
+    restart: "no"
 
   users_migrate:
     build:

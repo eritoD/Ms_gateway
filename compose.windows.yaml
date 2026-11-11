@@ -40,13 +40,17 @@ services:
 
   # Crea el rol y la base de ms-club si faltan y aplica sus scripts (tablas base,
   # y migraciones del dominio de clubes). Termina con código 0.
+  # Reemplaza al clubs_migrate de compose.yaml (que usa el migrador de la app): sin build ni command, y con el rol y la base.
   clubs_migrate:
+    profiles: !reset []
+    build: !reset null
+    command: !reset null
     image: postgres:16-alpine
     environment:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-SportmatchLocal2026}"
       CLUBS_DB_PASSWORD: "${CLUBS_DB_PASSWORD:?Configure CLUBS_DB_PASSWORD en .env}"
     volumes:
-      - ../Ms-club/db:/clubs-db:ro
+      - ../ms-club/db:/clubs-db:ro
       - ./docker/clubs-migrate.sh:/clubs-migrate.sh:ro
     entrypoint: ["sh", "/clubs-migrate.sh"]
     depends_on:
@@ -66,7 +70,7 @@ services:
   ms_club:
     profiles: !reset []
     build:
-      context: ../Ms-club
+      context: ../ms-club
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -74,13 +78,16 @@ services:
       clubs_migrate:
         condition: service_completed_successfully
 
+  # Igual que clubs_migrate: reemplaza al payments_migrate de compose.yaml.
   payments_migrate:
+    build: !reset null
+    command: !reset null
     image: postgres:16-alpine
     environment:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-SportmatchLocal2026}"
       PAYMENTS_DB_PASSWORD: "${PAYMENTS_DB_PASSWORD:?Configure PAYMENTS_DB_PASSWORD en .env}"
     volumes:
-      - ../ms-pago/db:/payments-db:ro
+      - ../Ms-pago/db:/payments-db:ro
       - ./docker/payments-migrate.sh:/payments-migrate.sh:ro
     entrypoint: ["sh", "/payments-migrate.sh"]
     depends_on:
