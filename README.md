@@ -9,7 +9,7 @@ docker compose -f compose.yaml -f compose.windows.yaml up --build -d
 docker compose -f compose.yaml -f compose.windows.yaml ps -a
 ```
 
-El complemento Windows usa `../ms-machine`, `../Ms_activities` y `../Ms-club`,
+El complemento Windows usa `../ms-machine`, `../Ms_activities` y `../ms-club`,
 conserva PostgreSQL en el volumen existente y aplica las migraciones de Users y
 Clubes y ms-pago. `POSTGRES_PORT` permite elegir el puerto local de la base sin modificar
 otros proyectos (5433 por defecto; este equipo usa 5434 en `.env`). La API sigue
