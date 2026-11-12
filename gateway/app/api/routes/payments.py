@@ -17,6 +17,7 @@ PAYMENTS = [
     ("/plans", ["GET"], True, "Planes disponibles", {"tipo": {"type": "string", "enum": ["USUARIO", "CLUB"]}}, None),
     ("/webpay/initiate", ["POST"], False, "Iniciar el pago de un plan con Webpay Plus", None, {"plan_id": 1}),
     ("/webpay/commit", ["POST"], False, "Confirmar el pago al volver de Webpay", None, {"token_ws": "a" * 64}),
+    ("/webpay/cancel", ["POST"], False, "Cerrar un intento consultando antes su estado", None, {"token_ws": "a" * 64}),
     ("/subscription/me", ["GET"], False, "Mi suscripción", None, None),
     ("/history/me", ["GET"], False, "Mi historial de pagos",
      {"page": {"type": "integer", "minimum": 1}, "page_size": {"type": "integer", "minimum": 1, "maximum": 100}}, None),
