@@ -390,3 +390,15 @@ def test_a_suspended_account_cannot_answer_or_open_a_quoted_message(guarded, met
     assert response.status_code == 403 and response.json()["code"] == "account_suspended"
     assert upstream.other_calls == []
     assert client.request(method, path).status_code == 401
+
+
+def test_the_internal_photos_endpoint_is_not_reachable_through_the_gateway(guarded):
+    """Defecto 2 de la verificación de HU-61: ms-club pide las fotos vigentes por la red interna; nunca por el gateway."""
+    client, upstream = guarded
+    for path in ("/internal/v1/accounts/photos", "/api/v1/users/internal/v1/accounts/photos",
+                 "/api/v1/clubs/internal/v1/accounts/photos"):
+        for method in ("get", "post"):
+            response = getattr(client, method)(path, headers={**bearer(), "X-Internal-Service-Token": SERVICE_TOKEN},
+                                               **({"json": {"ids": [USER]}} if method == "post" else {}))
+            assert response.status_code in (404, 405), (method, path, response.status_code)
+    assert upstream.other_calls == []

@@ -4,6 +4,7 @@ import re
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -40,7 +41,12 @@ def configure_http_security(application: FastAPI, settings: Settings) -> None:
         )
         request.state.request_id = request_id
 
-        response = await call_next(request)
+        # A NUL (%00) in the path cannot be a real resource and httpx refuses to build the upstream URL with it
+        # (InvalidURL -> 500). Answered here, for every route, before anything is forwarded.
+        if "\x00" in request.url.path:
+            response = JSONResponse({"detail": "Not Found"}, status_code=404)
+        else:
+            response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
