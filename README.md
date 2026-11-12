@@ -4,6 +4,16 @@
 
 Desde esta carpeta, con Docker Desktop iniciado:
 
+Para arrancar también Expo Go y la web con los repositorios en carpetas hermanas:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/iniciar-dev.ps1
+```
+
+El script configura los enlaces locales de Webpay con la IP actual del equipo y
+expone Expo Go en el puerto 8081, la web en 3001 y la API en 8000.
+Para iniciar únicamente el backend:
+
 ```powershell
 docker compose -f compose.yaml -f compose.windows.yaml up --build -d
 docker compose -f compose.yaml -f compose.windows.yaml ps -a
