@@ -7,6 +7,21 @@ from tests.test_clubs_proxy import gateway, Upstream
 from tests.test_users_proxy import token_headers
 
 
+def test_cancelar_solo_reenvia_con_sesion_y_conserva_token_y_resultado(monkeypatch):
+    upstream = Upstream(httpx.Response(200, json={"status": "CANCELLED"}))
+    with gateway(monkeypatch, "payments", upstream) as client:
+        body = {"token_ws": "a" * 64}
+        assert client.post('/api/v1/payments/webpay/cancel', json=body).status_code == 401
+        assert not upstream.calls
+        response = client.post('/api/v1/payments/webpay/cancel', headers=token_headers(), json=body)
+        assert response.status_code == 200
+        assert response.json()['status'] == 'CANCELLED'
+    assert len(upstream.calls) == 1
+    assert upstream.calls[0].url.path == '/api/v1/payments/webpay/cancel'
+    assert upstream.calls[0].method == 'POST'
+    assert upstream.calls[0].content == b'{"token_ws":"' + b'a' * 64 + b'"}'
+
+
 @pytest.mark.parametrize("path", ["history/me?page=2&page_size=5", "subscriptions/me/history",
                                   f"history/{uuid4()}/receipt"])
 def test_historial_exige_jwt_y_se_envia_solo_a_pagos(monkeypatch, path):
