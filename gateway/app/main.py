@@ -11,9 +11,11 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.http_security import configure_http_security
+from app.core.log_masking import install_access_log_masking
 from app.services.account_guard import AccountGuard, AccountSuspendedError, ClosedAccountGuard
 
 log = logging.getLogger(__name__)
+install_access_log_masking()  # ?ticket= y token_ws no se escriben en el registro de accesos
 
 
 def create_app() -> FastAPI:

@@ -207,6 +207,17 @@ importación; los reintentos nunca sobrescriben datos nuevos. Respaldar la base
 antes del cambio. Las pruebas `tests/test_payments_migration.py` se ejecutan en
 bases nuevas descartables con `PAYMENT_MIGRATION_TEST_ADMIN_URL`.
 
+**La IP en un solo lugar (Windows).** `scripts/iniciar-dev.ps1` calcula la IP de la LAN una vez y deriva de ella
+`WEBPAY_PUBLIC_URL`, `WEBPAY_FRONTEND_RETURN_URL` (`exp://IP:8081/--/pago` con Expo Go; con `-ModoApp Compilada`,
+`sportmatchapp://pago`, el `scheme` de `app.json`), `WEBPAY_WEB_RETURN_URL` (`http://localhost:<puerto de la web>/pago/resultado`,
+`-PuertoWeb 3001` por defecto), `ALLOWED_HOSTS` (agrega la IP), `GATEWAY_BIND=0.0.0.0` y `CORS_ALLOWED_ORIGINS`, y al final
+imprime el valor de `EXPO_PUBLIC_API_URL` para la app. Ms-pago decide el retorno según `client` al iniciar el pago: `app`
+(por defecto) vuelve a `WEBPAY_FRONTEND_RETURN_URL` y `web` a `WEBPAY_WEB_RETURN_URL`. `compose.yaml` incluye el servicio de una
+sola vez `webpay_config_check`, que impide levantar `ms_pago` si `WEBPAY_FRONTEND_RETURN_URL` apunta a `localhost` y
+`WEBPAY_MOCK_MODE` no es `true` (el teléfono no puede volver a `localhost`).
+
+El registro de accesos del gateway enmascara `?ticket=`, `token_ws` y `TBK_TOKEN` (`gateway/app/core/log_masking.py`).
+
 Para desarrollo sin cobros, configurar `WEBPAY_MOCK_MODE=true` y
 `WEBPAY_ENVIRONMENT=INTEGRATION`. `scripts/smoke_payments.py` comprueba aprobado,
 rechazado, cancelado, callback y repetición para deportista y club; solo confirma

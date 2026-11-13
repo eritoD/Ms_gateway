@@ -88,7 +88,7 @@ services:
 
   ms_matching:
     build:
-      context: ../Ms_Matching
+      context: ../ms-machine
     environment:
       MATCHING_DATABASE_URL: "${MATCHING_DATABASE_URL:?Configure MATCHING_DATABASE_URL en .env}"
       JWT_SECRET: "${JWT_SECRET:?Configure JWT_SECRET en .env}"
@@ -135,6 +135,25 @@ services:
       - "8004"
     restart: unless-stopped
 
+  # Falla con un mensaje claro si el retorno del pago de la app apunta a localhost en modo real:
+  # el teléfono (Expo Go o app compilada) no puede abrir "localhost" del equipo. Con WEBPAY_MOCK_MODE=true no aplica.
+  webpay_config_check:
+    build:
+      context: ../Ms-pago
+    environment:
+      WEBPAY_MOCK_MODE: "${WEBPAY_MOCK_MODE:-false}"
+      WEBPAY_FRONTEND_RETURN_URL: "${WEBPAY_FRONTEND_RETURN_URL:?Destino del pago en la app}"
+    command:
+      - python
+      - -c
+      - |
+        import os, sys
+        from urllib.parse import urlsplit
+        host = (urlsplit(os.environ["WEBPAY_FRONTEND_RETURN_URL"]).hostname or "").lower()
+        if os.environ["WEBPAY_MOCK_MODE"].lower() != "true" and host in ("localhost", "127.0.0.1", "::1", "0.0.0.0"):
+            sys.exit("ERROR: WEBPAY_FRONTEND_RETURN_URL apunta a %r y WEBPAY_MOCK_MODE no es true. El teléfono no puede volver a localhost. Usa la IP de la LAN (scripts/iniciar-dev.ps1 la calcula), sportmatchapp://pago, o activa WEBPAY_MOCK_MODE=true." % host)
+    restart: "no"
+
   ms_pago:
     build:
       context: ../Ms-pago
@@ -162,6 +181,8 @@ services:
       ms_users:
         condition: service_healthy
       payments_migrate:
+        condition: service_completed_successfully
+      webpay_config_check:
         condition: service_completed_successfully
     expose:
       - "8005"
